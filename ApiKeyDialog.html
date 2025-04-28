@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <style>
+         /* 
+         * Стили для диалога API ключа 
+         * Удалены стили, связанные с триальным периодом и подпиской
+         */
+
+        :root {
+            /*  переменные :root остаются без изменений */
+            --background-color: #f0f4f8;
+            --primary-color-1: #ffffff;
+            --primary-color-2: #e0e0e0;
+            --primary-color-3: #2196f3;
+            --text-color: #555555;
+            --text-color-headline: #222222;
+            --text-color-sub: #777777;
+            --button-text-color: #ffffff;
+            --border-color: #e0e0e0;
+            --error-color: #d32f2f;
+            --success-color: #4CAF50;
+            --button-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            --button-hover-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            --input-bg: #ffffff;
+            --input-text: #222222;
+            --input-border: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 5px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: flex-start;
+        }
+
+       .container {
+            background-color: transparent;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.3);
+            width: 100%;
+            max-width: 280px;
+            box-sizing: border-box;
+            position: relative;
+            padding-bottom: 40px; /* Добавляем отступ снизу для подсказок */
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+        /*  стиль для горизонтального input-group */
+        .input-group-row {
+            display: flex;          /*  flex контейнер */
+            align-items: center;     /*  выравнивание элементов по центру ВЕРТИКАЛИ */
+            gap: 10px;          /*  расстояние между элементами */
+        }
+
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-color-headline);
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        /* Стиль для label сверху поля ввода - УПРОЩЕН */
+        label.top-label {
+          display: block;
+          margin-bottom: 5px; /*  отступ от label до поля ввода */
+        }
+
+
+       input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            backdrop-filter: blur(3px);
+            transition: all 0.2s ease;
+            flex-grow: 1; /*  поле ввода занимает доступное место */
+            min-width: 0; /*  для правильного сжатия */
+            text-align: left; /*  Выравнивание текста по левому краю */
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+       }
+
+       input[type="text"]::placeholder, input[type="number"]::placeholder {
+            color: var(--text-color-sub);
+            font-size: 0.85em; /* Размер шрифта */
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .button-group-column {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-top: 10px;
+        }
+
+       .custom-button {
+            padding: 8px 16px;
+            border: 1px solid transparent; /* Добавляем прозрачную границу */
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            background-color: var(--primary-color-3);
+            color: var(--button-text-color);
+            box-shadow: var(--button-shadow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex; /* Используем flexbox */
+            align-items: center;
+            justify-content: center;
+            width: auto; /* Автоматическая ширина */
+            min-width: 80px; /* Минимальная ширина */
+        }
+
+       .custom-button:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5; /* Немного меняем цвет */
+            border-color: var(--primary-color-2); /* Добавляем границу при наведении */
+        }
+      .custom-button:active{
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+       }
+       /* КНОПКА ОЧИСТИТЬ */
+       .delete-button {
+            background-color: var(--primary-color-1); /* Белый фон */
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color); /* Рамка */
+           /* добавил */
+            padding: 6px 10px;
+            font-size: 0.75em;
+            width: auto;
+        }
+        .delete-button:hover {
+             background-color: rgba(255, 255, 255, 0.5); /* Фон при наведении */
+             border-color: var(--primary-color-3); /* Цвет границы */
+         }
+       button:disabled {
+            opacity: 0.5; /* Полупрозрачность */
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+
+        #error-message,
+        #status-message {
+            padding: 10px;
+            margin-top: 15px; /* Отступ сверху */
+            border-radius: 8px;
+            display: none; /* Скрыто по умолчанию */
+            word-wrap: break-word;
+            vertical-align: middle;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        #error-message.visible,
+        #status-message.visible {
+            display: block;
+        }
+
+        #error-message {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        #status-message {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .progress-indicator {
+            display: none;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 12px;
+            color: var(--text-color);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color-3);
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+       @keyframes spin {
+          0%   { transform: rotate(0deg);   }
+          100% { transform: rotate(360deg); }
+       }
+       /*  стиль для кнопки "Сбросить температуру" */
+        #resetTemperatureButton {
+            text-transform: uppercase;
+            font-size: 0.75em;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+            color: var(--button-text-color);
+            box-shadow: var(--button-shadow);
+            padding: 6px 12px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: auto; /*  авто ширина */
+            height: auto;
+            background-color: var(--primary-color-1); /* Белый фон */
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color); /* Рамка */
+        }
+
+        #resetTemperatureButton:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5; /* Немного меняем цвет */
+            border-color: var(--primary-color-2); /* Добавляем границу при наведении */
+        }
+        #resetTemperatureButton:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+       }
+        /* Новые стили для общего сброса */
+        #resetAllSettingsButton {
+            background-color: var(--primary-color-1); /* Белый фон */
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color); /* Рамка */
+            margin-top: 10px; /* Добавляем отступ сверху */
+            /* Другие стили, если нужно */
+        }
+         #resetAllSettingsButton:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5; /* Немного меняем цвет */
+            border-color: var(--primary-color-2); /* Добавляем границу при наведении */
+        }
+        #resetAllSettingsButton:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+       }
+       /* Добавляем стиль для чекбокса */
+       .checkbox-label {
+           display: flex;
+           align-items: center;
+           gap: 8px;
+           cursor: pointer;
+           user-select: none;
+           font-size: 12px;
+           color: var(--text-color);
+       }
+
+       .checkbox-label input[type="checkbox"] {
+           width: 16px;
+           height: 16px;
+           cursor: pointer;
+       }
+
+       .checkbox-label label {
+           margin-bottom: 0;
+           cursor: pointer;
+       }
+
+       /* Стили для выпадающего списка */
+        #modelSelect {
+            width: 100%; /* Полная ширина */
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            appearance: none; /* Убираем стандартную стрелку */
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #modelSelect:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+          /* Добавляем кастомную стрелку */
+        .select-wrapper {
+              position: relative;
+              display: inline-block;
+              width: 100%;
+        }
+        .select-wrapper::after {
+              content: '▼';
+              position: absolute;
+              top: 50%;
+              right: 10px;
+              transform: translateY(-50%);
+              color: var(--text-color-sub);
+              pointer-events: none; /*  не кликабельно */
+              font-size: 0.8em;
+        }
+
+        /* Удаляем старые стили для подсказок */
+        [data-tooltip]:before,
+        [data-tooltip]:after {
+            display: none;
+        }
+
+        /* Добавляем новые стили для подсказок */
+        .tooltip-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #333333;
+            color: #FFD700;
+            padding: 8px 12px;
+            border-radius: 0 0 8px 8px;
+            font-size: 12px;
+            white-space: pre-line;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 1000;
+            width: 100%;
+            text-align: left;
+            pointer-events: none;
+            line-height: 1.2;
+            box-sizing: border-box;
+        }
+
+        .tooltip-container.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #trialBanner {
+            display: none;
+        }
+        #unsubscribeButton {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- API Key -->
+        <div class="input-group">
+            <label for="apiKey" data-tooltip="Введите ваш API-ключ от OpenRouter в формате sk-or-v1-...">API-ключ OpenRouter:</label>
+            <div class="input-group-row">
+                <input type="text" id="apiKey" placeholder="sk-or-v1-..." pattern="sk-or-v1-.*" data-tooltip="Ключ должен начинаться с sk-or-v1-">
+                <button onclick="deleteKey()" id="deleteButton" class="custom-button delete-button" data-tooltip="Удалить текущий API-ключ">Удалить</button>
+            </div>
+        </div>
+
+        <!-- Model -->
+        <div class="input-group">
+           <label for="modelSelect" data-tooltip="Выберите модель для генерации текста">Выберите модель:</label>
+           <div class="select-wrapper">
+              <select id="modelSelect" data-tooltip="Список доступных моделей"></select>
+           </div>
+           <div class="checkbox-label">
+                <input type="checkbox" id="freeOnlyCheckbox" data-tooltip="Показывать только бесплатные модели">
+                <label for="freeOnlyCheckbox" data-tooltip="Фильтровать список моделей, оставляя только бесплатные">Только бесплатные</label>
+            </div>
+       </div>
+
+        <!-- General Temperature -->
+        <div class="input-group">
+            <label for="temperature" class="top-label" data-tooltip="Установите температуру для генерации (0-1). Меньшие значения дают более предсказуемые результаты">Общая температура (0-1):</label>
+            <div class="input-group input-group-row">
+                <input type="number" id="temperature" step="0.01" min="0" max="1" placeholder="0.1" data-tooltip="Значение от 0 до 1. Рекомендуется 0.1-0.3">
+                <button onclick="resetTemperature('temperature')" class="custom-button delete-button" style="width: auto; font-size: 0.75em; padding: 6px 10px;" data-tooltip="Сбросить значение температуры">Сброс</button>
+            </div>
+        </div>
+
+        <!-- Tooltips Toggle -->
+        <div class="input-group">
+            <div class="checkbox-label">
+                <input type="checkbox" id="enable-tooltips" checked data-tooltip="Включить/выключить всплывающие подсказки">
+                <label for="enable-tooltips" data-tooltip="Управление отображением всплывающих подсказок">Включить подсказки</label>
+            </div>
+        </div>
+
+        <!-- Max Tokens -->
+        <div class="input-group">
+            <label for="maxTokens" data-tooltip="Максимальное количество токенов в ответе">Макс. токенов:</label>
+            <input type="number" id="maxTokens" placeholder="Например: 2048" data-tooltip="Рекомендуется 1000-4000 токенов">
+        </div>
+
+
+        <!-- Кнопки -->
+         <!--  Убираем отдельную кнопку "Сохранить" -->
+        <!-- <div class="button-group">
+            <button onclick="saveKey()" id="saveButton" class="custom-button" style="margin-right: auto;">Сохранить</button>
+            <button onclick="deleteKey()" id="deleteButton" class="custom-button delete-button" style="margin-left: auto;">Удалить</button>
+        </div> -->
+        <button onclick="saveKey()" id="saveButton" class="custom-button" data-tooltip="Сохранить все настройки">Сохранить</button>
+        <button onclick="resetAllSettings()" id="resetAllSettingsButton" class="custom-button delete-button" data-tooltip="Сбросить все настройки к значениям по умолчанию">Сбросить все настройки</button>
+
+        <div id="error-message" class="message"></div>
+        <div id="status-message" class="message"></div>
+        <div class="progress-indicator"><span class="spinner"></span>Сохранение...</div>
+    </div>
+
+    <div class="tooltip-container" id="tooltip-container"></div>
+
+    <script>
+      class ApiKeyManager {
+        static validateApiKey(apiKey) {
+            return /^sk-or-v1-[a-zA-Z0-9]+$/.test(apiKey);
+        }
+
+        static validateTemperature(temp) {
+            if (!temp) return true; // Необязательное поле
+            const value = parseFloat(temp);
+            return !isNaN(value) && value >= 0 && value <= 1;
+        }
+        //Валидация для модели  убрал
+        // static validateModel(model) {  убрал
+        //   if (!model) return true;     убрал
+        //   return model.trim() !== "";  убрал
+        // }
+        // Валидация для maxTokens
+        static validateMaxTokens(maxTokens) {
+            if (!maxTokens) return true;
+            const value = parseInt(maxTokens, 10);
+            return !isNaN(value) && value > 0;
+        }
+
+        static setLoading(isLoading) {
+          // document.body.classList.toggle('loading', isLoading);  убрал
+            document.querySelectorAll('button:not(#resetTemperatureButton):not(#resetAllSettingsButton)').forEach(btn =>
+                btn.disabled = isLoading
+            );
+
+            document.querySelector('.progress-indicator').style.display =
+                isLoading ? 'block' : 'none';
+
+        }
+    }
+
+    class UIManager {
+        static showMessage(message, type = 'info') {
+            const messageElement = document.getElementById('error-message');
+            const statusElement = document.getElementById('status-message');
+            
+            // Сначала удаляем классы visible
+            messageElement.classList.remove('visible');
+            statusElement.classList.remove('visible');
+
+            // Очищаем текст
+            messageElement.textContent = '';
+            statusElement.textContent = '';
+
+            if (type === 'error') {
+                messageElement.textContent = message;
+                messageElement.classList.add('visible');
+            } else {
+                statusElement.textContent = message;
+                statusElement.classList.add('visible');
+            }
+            
+            // Добавляем автоматическое скрытие сообщения через 5 секунд
+            if (message) {
+                setTimeout(() => {
+                    if (type === 'error') {
+                        messageElement.classList.remove('visible');
+                    } else {
+                        statusElement.classList.remove('visible');
+                    }
+                }, 5000);
+            }
+        }
+
+        static clearMessages() {
+            document.getElementById('error-message').classList.remove('visible');
+            document.getElementById('status-message').classList.remove('visible');
+        }
+    }
+
+    let validationTimer;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Загружаем настройки с сервера
+        loadInitialData();
+    });
+
+    function setupValidation() {
+      const apiKeyInput = document.getElementById('apiKey');
+      const temperatureInput = document.getElementById('temperature');
+      // const modelSelect = document.getElementById('modelSelect');  убрал
+      const maxTokensInput = document.getElementById('maxTokens');
+      const saveButton = document.getElementById('saveButton');
+
+      apiKeyInput.addEventListener('input', () => {
+          clearTimeout(validationTimer);
+          validationTimer = setTimeout(() => {
+              const apiKey = apiKeyInput.value.trim();
+              if (apiKey && !ApiKeyManager.validateApiKey(apiKey)) {
+                  UIManager.showMessage('Неверный формат API-ключа', 'error');
+              } else {
+                  UIManager.clearMessages();
+                  //  API key +  loadModels
+                  if (apiKey) {
+                      loadModels();
+                  }
+              }
+          }, 200)
+      });
+
+      //  обработчик для select  убрал
+
+      temperatureInput.addEventListener('input', () => {
+          clearTimeout(validationTimer);
+          validationTimer = setTimeout(() => {
+              const temperature = temperatureInput.value.trim();
+              if (temperature && !ApiKeyManager.validateTemperature(temperature)) {
+                  UIManager.showMessage('Температура должна быть числом от 0 до 1', 'error');
+              } else {
+                  UIManager.clearMessages();
+              }
+          }, 200);
+      });
+      // Добавили обработчик для maxTokens
+      maxTokensInput.addEventListener('input', () => {
+          clearTimeout(validationTimer);
+          validationTimer = setTimeout(() => {
+              const maxTokens = maxTokensInput.value.trim();
+              if (maxTokens && !ApiKeyManager.validateMaxTokens(maxTokens)) {
+                  UIManager.showMessage('Макс. токенов должно быть положительным числом', 'error');
+              } else {
+                  UIManager.clearMessages();
+              }
+          }, 200);
+      });
+
+    }
+
+async function loadInitialData() {
+    try {
+        ApiKeyManager.setLoading(true);
+        const freeOnlySetting = await google.script.run.getFreeOnlySetting(); // Загружаем
+        document.getElementById('freeOnlyCheckbox').checked = freeOnlySetting;
+
+        await Promise.all([
+            loadApiKey(),
+            loadTemperature(),
+            loadModel(),
+            loadMaxTokens()
+        ]);
+        setupValidation();  //  setupValidation
+    } catch (error) {
+        UIManager.showMessage('Ошибка загрузки данных: ' + error, 'error');
+    } finally {
+        ApiKeyManager.setLoading(false);
+    }
+}
+
+    function loadApiKey() {
+        return new Promise((resolve) => {
+            google.script.run
+                .withSuccessHandler(apiKey => {
+                    document.getElementById('apiKey').value = apiKey || '';
+                    if (apiKey) {
+                        loadModels();  //  модели ПОСЛЕ загрузки ключа
+                    }
+                    resolve();
+                })
+                .withFailureHandler(error => {
+                    UIManager.showMessage('Ошибка загрузки API-ключа: ' + error, 'error');
+                    resolve();
+                })
+                .getApiKeyFromClient();
+        });
+    }
+
+    function loadTemperature() {
+        return new Promise((resolve) => {
+            google.script.run
+                .withSuccessHandler(temperature => {
+                    document.getElementById('temperature').value = temperature || '';
+                    resolve();
+                })
+                .withFailureHandler(error => {
+                    UIManager.showMessage('Ошибка загрузки температуры: ' + error, 'error');
+                    resolve();
+                })
+                .getTemperatureFromClient();
+        });
+    }
+
+  //  loadModel (теперь загружает значение, а не список)
+    function loadModel() {
+        return new Promise((resolve) => {
+            google.script.run
+                .withSuccessHandler(model => {
+                    //  modelSelect.value = model  тут
+                  if(model){
+                     document.getElementById('modelSelect').value = model;
+                  }
+
+                    resolve(); //  resolve
+                })
+                .withFailureHandler(error => {
+                    UIManager.showMessage('Ошибка загрузки модели: ' + error, 'error');
+                    resolve(); //  resolve
+                })
+                .getModelFromClient();
+        });
+    }
+
+    // Добавили функцию loadMaxTokens
+    function loadMaxTokens() {
+        return new Promise((resolve) => {
+            google.script.run
+                .withSuccessHandler(maxTokens => {
+                    document.getElementById('maxTokens').value = maxTokens || '';
+                    resolve();
+                })
+                .withFailureHandler(error => {
+                    UIManager.showMessage('Ошибка загрузки макс. токенов: ' + error, 'error');
+                    resolve();
+                })
+                .getMaxTokensFromClient();
+        });
+    }
+
+//  функция загрузки моделей
+    async function loadModels() {
+       const freeOnly = document.getElementById('freeOnlyCheckbox').checked;
+        try {
+          const models = await new Promise((resolve, reject) => {
+              google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getModelsListFromClient(freeOnly) //  freeOnly
+          });
+
+          const modelSelect = document.getElementById('modelSelect');
+          modelSelect.innerHTML = ''; //  старые опции
+
+          //  опции
+          models.forEach(model => {
+              const option = document.createElement('option');
+              option.value = model.id;
+              option.textContent = model.name; //  отображаем name
+              modelSelect.appendChild(option);
+          });
+
+          //  savedModel
+          // const savedModel = await google.script.run.getModelFromClient();  убрал
+          // if (savedModel) {
+          //    modelSelect.value = savedModel;  //  selected
+          // }
+          // Вместо этого вызываем loadModel
+          await loadModel();
+
+
+        } catch (error) {
+          UIManager.showMessage('Ошибка загрузки списка моделей: ' + error, 'error');
+        }
+    }
+
+
+    async function saveKey() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const temperature = document.getElementById('temperature').value.trim();
+      const model = document.getElementById('modelSelect').value;
+      const maxTokens = document.getElementById('maxTokens').value.trim();
+
+      // Валидация до вызова setLoading
+      if (!apiKey) {
+          if (!confirm('Вы уверены, что хотите удалить API-ключ?')){
+              return;
+          }
+      }
+      
+      if (apiKey && !ApiKeyManager.validateApiKey(apiKey)) {
+          UIManager.showMessage('Неверный формат API-ключа', 'error');
+          return;
+      }
+
+      if (temperature && !ApiKeyManager.validateTemperature(temperature)) {
+          UIManager.showMessage('Температура должна быть числом от 0 до 1', 'error');
+          return;
+      }
+
+      if (maxTokens && !ApiKeyManager.validateMaxTokens(maxTokens)) {
+          UIManager.showMessage('Макс. токенов должно быть положительным числом', 'error');
+          return;
+      }
+
+      ApiKeyManager.setLoading(true);
+      UIManager.clearMessages();
+
+      try {
+          console.log("Отправка данных на сервер:", {apiKey: apiKey ? "***" : null, temperature, model, maxTokens});
+          
+          // Сохраняем API-ключ и настройки
+          const result = await new Promise((resolve, reject) => {
+              google.script.run
+                  .withSuccessHandler(resolve)
+                  .withFailureHandler(reject)
+                  .saveApiKeyAndTemperature(apiKey, temperature, model, maxTokens);
+          });
+
+          console.log("Получен ответ от сервера:", result);
+
+          // Настройки в интерфейсе управляются сервером
+         
+          // Перезагрузка настроек с сервера
+          await loadInitialData();
+
+          UIManager.showMessage(result, 'success');
+      } catch (error) {
+          console.error("Ошибка при сохранении:", error);
+          UIManager.showMessage(error.message || error, 'error');
+      } finally {
+          ApiKeyManager.setLoading(false);
+      }
+    }
+
+    async function deleteKey() {
+        if (!confirm('Вы уверены, что хотите удалить API-ключ?')) return;
+
+        ApiKeyManager.setLoading(true);
+        UIManager.clearMessages();
+
+        try {
+            const result = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler(resolve)
+                    .withFailureHandler(reject)
+                    .deleteApiAndTemperature(); // Вызываем deleteApiAndTemperature
+            });
+
+            UIManager.showMessage(result, 'success');
+            document.getElementById('apiKey').value = ''; // Очищаем поле
+            // Остальные поля НЕ очищаем, т.к. удаляем ТОЛЬКО ключ
+
+           //  список моделей
+           const modelSelect = document.getElementById('modelSelect');
+           modelSelect.innerHTML = '';  //  опции
+
+
+        } catch (error) {
+            UIManager.showMessage(error.message || error, 'error');
+        } finally {
+            ApiKeyManager.setLoading(false);
+        }
+    }
+
+
+
+    function resetTemperature(fieldId) {
+        document.getElementById(fieldId).value = ''; // fieldId
+    }
+    // Функция для сброса всех настроек
+    function resetAllSettings() {
+        if (!confirm('Вы уверены, что хотите сбросить все настройки?')) return;
+
+        document.getElementById('apiKey').value = '';
+        document.getElementById('temperature').value = '';
+        document.getElementById('modelSelect').innerHTML = ''; //  select
+        document.getElementById('maxTokens').value = '';
+        // Вызываем функцию удаления ключа и температуры, чтобы сбросить на сервере
+        deleteKeyAndSettings(); // вызываем новую функцию
+    }
+          // Новая функция для удаления и ключа, и настроек
+    async function deleteKeyAndSettings() {
+          ApiKeyManager.setLoading(true);
+          UIManager.clearMessages();
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    google.script.run
+                    .withSuccessHandler(resolve)
+                    .withFailureHandler(reject)
+                    .deleteApiAndTemperature();
+                });
+              UIManager.showMessage(result, 'success');
+            } catch (error) {
+              UIManager.showMessage(error.message || error, 'error');
+            } finally {
+              ApiKeyManager.setLoading(false);
+            }
+        }
+
+    // Добавил обработчики событий
+      document.getElementById('modelSelect').addEventListener('change', function() {
+          const selectedModel = this.value;
+          google.script.run.saveSelectedModel(selectedModel);
+      });
+
+      document.getElementById('freeOnlyCheckbox').addEventListener('change', function() {
+          const freeOnly = this.checked;
+          google.script.run.saveFreeOnlySetting(freeOnly);
+          loadModels();
+      });
+
+    // Добавляем функции для работы с подсказками
+    function showTooltip(element, text) {
+        const tooltipContainer = document.getElementById('tooltip-container');
+        tooltipContainer.textContent = text;
+        tooltipContainer.classList.add('visible');
+    }
+
+    function hideTooltip() {
+        const tooltipContainer = document.getElementById('tooltip-container');
+        tooltipContainer.classList.remove('visible');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const tooltipsEnabled = true; // Подсказки включены по умолчанию
+        // Добавляем обработчики для элементов с подсказками
+        document.querySelectorAll('[data-tooltip]').forEach(element => {
+            element.addEventListener('mouseenter', () => {
+                if (tooltipsEnabled) {
+                    showTooltip(element, element.getAttribute('data-tooltip'));
+                }
+            });
+            element.addEventListener('mouseleave', () => {
+                if (tooltipsEnabled) {
+                    hideTooltip();
+                }
+            });
+        });
+    });
+
+    </script>
+</body>
+</html>

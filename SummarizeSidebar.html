@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <style>
+        /* стили (добавляем стили для result-container) */
+        :root {
+            --background-color: #f0f4f8;
+            --primary-color-1: #ffffff;
+            --primary-color-2: #e0e0e0;
+            --primary-color-3: #2196f3;
+            --text-color: #555555;
+            --text-color-headline: #222222;
+            --text-color-sub: #777777;
+            --button-text-color: #ffffff;
+            --border-color: #e0e0e0;
+            --drop-area-border: #e0e0e0;
+            --drop-area-bg: #ffffff;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 10px;
+            padding: 5px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: transparent;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.3);
+            width: 100%;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 40px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-color-headline);
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--primary-color-1);
+            color: var(--text-color-headline);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            line-height: 1.5;
+            backdrop-filter: blur(3px);
+            resize: vertical;
+            transition: all 0.2s ease;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        .custom-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            min-width: 80px;
+            color: var(--button-text-color);
+            background-color: var(--primary-color-3);
+            border: 1px solid transparent;
+        }
+        .custom-button:hover:not(:disabled) {
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5;
+            border-color: var(--primary-color-2);
+        }
+        .custom-button:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+        }
+        .custom-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        .clear-button {
+            background: rgba(255, 255, 255, 0.3);
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color);
+            padding: 5px 8px;
+            font-size: 0.7em;
+            border-radius: 4px;
+            position: absolute;
+            top: auto;
+            right: 0;
+            backdrop-filter: blur(3px);
+            transition: all 0.2s ease;
+        }
+        .clear-button:hover {
+            background: rgba(255, 255, 255, 0.5);
+            color: var(--text-color-headline);
+            border-color: var(--primary-color-3);
+            transform: scale(1.05);
+        }
+        .message {
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 8px;
+            display: none;
+            word-wrap: break-word;
+            border: 1px solid transparent;
+            font-weight: 400;
+            opacity: 0.95;
+            font-size: 0.9em;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+        .message.error {
+            background-color: #fde0e0;
+            color: #d32f2f;
+            display: block;
+            border-color: #fccaca;
+        }
+        .message.success {
+            background-color: #e6f4ea;
+            color: var(--success-color);
+            display: block;
+            border-color: #c8e6c9;
+        }
+        .progress-indicator {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+            color: var(--text-color-headline);
+            font-size: 1em;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: opacity 0.2s ease;
+        }
+        .progress-indicator.visible {
+            display: block;
+            opacity: 1;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color-3);
+            animation: spin 0.6s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        textarea::placeholder {
+            color: var(--text-color-sub);
+            font-size: 0.85em;
+            font-style: italic;
+        }
+        input[type="number"]::placeholder {
+            color: var(--text-color-sub);
+            font-size: 0.85em;
+            font-style: italic;
+        }
+        #result-container {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--primary-color-1);
+            color: var(--text-color-headline);
+            min-height: 100px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+            line-height: 1.5;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s ease;
+            display: none;
+        }
+        #result-container.show {
+             display: flex;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--primary-color-1);
+            color: var(--text-color-headline);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            backdrop-filter: blur(3px);
+            transition: all 0.2s ease;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        .icon-button {
+            padding: 6px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 8px;
+            opacity: 0.8;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .icon-button:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        #buttonContainer {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+        }
+        #buttonContainer button {
+            margin-bottom: 10px;
+        }
+        #error-message, #status-message {
+            display: none;
+        }
+        #error-message.show, #status-message.show {
+            display: block;
+        }
+        .progress-indicator {
+            display: none;
+        }
+        .progress-indicator.visible {
+            display: block;
+        }
+        .tooltip-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #333333;
+            color: #FFD700;
+            padding: 8px 12px;
+            border-radius: 0 0 8px 8px;
+            font-size: 12px;
+            white-space: pre-line;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 1000;
+            width: 100%;
+            text-align: left;
+            pointer-events: none;
+            line-height: 1.2;
+            box-sizing: border-box;
+        }
+        .tooltip-container.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Удаляем стили для элементов триального периода */
+        #trialBanner {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class = "input-group tooltip">
+        <label for="textToSummarize">Текст для суммаризации:</label>
+        <div class="input-row" style="position: relative;">
+            <textarea id="textToSummarize" placeholder="Введите текст или выделите диапазон" class="tooltip"></textarea>
+            <span class="tooltiptext">Введите текст для создания краткого содержания или выделите диапазон ячеек. AI создаст сжатое изложение, сохранив ключевые моменты и основную суть текста.</span>
+            <div style="position: absolute; bottom: -25px; left: 0; display: flex;">
+                <button id="copyInputTextButton" class="icon-button tooltip" onclick="copyInput()">
+                    <span style="font-size: 1em;">📋</span>
+                    <span class="tooltiptext">Копировать введенный текст</span>
+                </button>
+                <button id="clearInputTextButton" class="icon-button tooltip" onclick="clearInput(false)">
+                    <span style="font-size: 1em;">❌</span>
+                    <span class="tooltiptext">Очистить поле ввода</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="input-group tooltip">
+        <label>Загрузить файл для суммаризации:</label>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.txt,.ods,.docx,.doc">
+        <div id="drop-area" data-tooltip="Перетащите файл сюда или кликните для выбора.
+Поддерживаемые форматы:
+• Excel (.xlsx, .xls)
+• Word (.docx, .doc)
+• CSV
+• TXT
+• ODS
+Максимальный размер файла: 10MB">
+            <div>Перетащите файл сюда</div>
+            <div class="file-info">или нажмите для выбора</div>
+            <div class="file-name-label" id="file-name-label"></div>
+        </div>
+    </div>
+    <div class = "input-group tooltip">
+        <label for="temperature">Температура (необязательно):</label>
+        <input type="number" id="temperature" step="0.01" min="0" max="1" placeholder="По умолчанию: из настроек">
+        <span class="tooltiptext">Влияет на креативность ответа. От 0 (более точный) до 1 (более творческий)</span>
+    </div>
+    <div id="buttonContainer">
+        <button onclick="summarize()" class = "custom-button tooltip">
+            <span style="margin-right: 6px;">⚡</span> Суммировать
+            <span class="tooltiptext">Начать процесс суммаризации текста</span>
+        </button>
+        <div style="display: flex; margin-left: 0; align-items: center;">
+            <button onclick="insertResult()" id="insertButton" class="icon-button tooltip"  title="Вставить результат" style="margin-left: 0; display: none;">
+                <span style="font-size: 1em;">✅</span>
+                <span class="tooltiptext">Вставить результат в активную ячейку</span>
+            </button>
+            <button id="copyResultButton" class="icon-button tooltip" onclick="copyResult()" title="Копировать результат" style="display: none;">
+                <span style="font-size: 1em;">📋</span>
+                <span class="tooltiptext">Копировать результат в буфер обмена</span>
+            </button>
+            <button id="clearResultButton" class="icon-button tooltip" onclick="clearInput(true)" title="Очистить результат" style="display: none;">
+                <span style="font-size: 1em;">❌</span>
+                <span class="tooltiptext">Очистить результат</span>
+            </button>
+        </div>
+    </div>
+    <div id="result-container" style="position: relative;">
+    </div>
+    <div id="error-message" class="message error"></div>
+    <div id="status-message" class="message success"></div>
+    <div class="progress-indicator">
+        <span class ="spinner"></span>
+        Сохранение...
+    </div>
+</div>
+<script>
+    function showMessage(message, type = 'status') {
+        const errorElement = document.getElementById('error-message');
+        const statusElement = document.getElementById('status-message');
+        errorElement.classList.remove('show');
+        statusElement.classList.remove('show');
+        if (type === 'error') {
+            errorElement.textContent = message;
+            errorElement.classList.add('show');
+        } else {
+            statusElement.textContent = message;
+            statusElement.classList.add('show');
+        }
+    }
+    function clearMessages() {
+        document.getElementById('error-message').classList.remove('show');
+        document.getElementById('status-message').classList.remove('show');
+    }
+    async function summarize() {
+        clearMessages()
+        const textToSummarize = document.getElementById('textToSummarize').value.trim();
+        let temperature = document.getElementById('temperature').value.trim();
+        if (temperature) {
+            temperature = parseFloat(temperature);
+            if (isNaN(temperature) || temperature < 0 || temperature > 1) {
+                showMessage('Неверное значение температуры.  Должно быть число от 0 до 1.', 'error');
+                return;
+            }
+        } else {
+            temperature = null;
+        }
+        const progressIndicator = document.querySelector('.progress-indicator');
+        progressIndicator.classList.add('visible');
+        if (!textToSummarize) {
+            try {
+                const selectedText = await google.script.run.withSuccessHandler(rangeText => {
+                    if (!rangeText) {
+                        throw new Error('Выделите диапазон ячеек или введите текст');
+                    }
+                    progressIndicator.classList.remove('visible');
+                    summarizeText(rangeText, temperature);
+                }).withFailureHandler(error => {
+                    showMessage(error.message, 'error');
+                }).getSelectedRangeText();
+            } catch (error) {
+                showMessage(error.message, 'error');
+                progressIndicator.classList.remove('visible');
+                return;
+            }
+        } else {
+            progressIndicator.classList.remove('visible');
+            summarizeText(textToSummarize, temperature);
+        }
+    }
+    function summarizeText(text, temperature) {
+        google.script.run
+            .withSuccessHandler(result => {
+                // Очищаем и нормализуем текст перед вставкой
+                const normalizedText = result
+                    .replace(/\r\n/g, '\n')
+                    .replace(/\r/g, '\n')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                document.getElementById('result-container').innerHTML = normalizedText;
+                const insertButton = document.getElementById('insertButton');
+                insertButton.style.display = 'block';
+                const clearResultButton = document.getElementById('clearResultButton');
+                clearResultButton.style.display = 'block';
+                const copyResultButton = document.getElementById('copyResultButton');
+                copyResultButton.style.display = 'flex';
+                document.getElementById('result-container').classList.add('show');
+                showMessage('Текст суммирован', 'success');
+            })
+            .withFailureHandler(error => {
+                showMessage(error.message, 'error');
+            })
+            .summarizeText(text, temperature);
+    }
+    function insertResult() {
+        const resultText = document.getElementById('result-container').innerText;
+        // Очищаем и нормализуем текст перед вставкой
+        const normalizedText = resultText
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/\s+/g, ' ')
+            .trim();
+            
+        google.script.run
+            .withSuccessHandler(() => {
+                showMessage('Текст вставлен в активную ячейку', 'success');
+            })
+            .withFailureHandler(error => {
+                showMessage(error.message, 'error');
+            })
+            .insertTextIntoActiveCell(normalizedText);
+    }
+    function clearInput(isAfterSummarize = false) {
+        if (isAfterSummarize) {
+            document.getElementById('result-container').innerHTML = '';
+            document.getElementById('result-container').classList.remove('show');
+            const insertButton = document.getElementById('insertButton');
+            insertButton.style.display = 'none';
+            const clearResultButton = document.getElementById('clearResultButton');
+            clearResultButton.style.display = 'none';
+            const copyResultButton = document.getElementById('copyResultButton');
+            copyResultButton.style.display = 'none';
+        } else {
+            document.getElementById('textToSummarize').value = '';
+            document.getElementById('temperature').value = '';
+            currentFile = null;
+            document.getElementById('file-name-label').textContent = '';
+            document.getElementById('file-input').value = '';
+        }
+        clearMessages();
+    }
+
+    function copyResult() {
+        const resultText = document.getElementById('result-container').innerText;
+        navigator.clipboard.writeText(resultText).then(() => {
+            showMessage('Результат скопирован в буфер обмена', 'success');
+        }).catch(err => {
+            showMessage('Не удалось скопировать результат: ' + err, 'error');
+        });
+    }
+
+    function copyInput() {
+        const inputText = document.getElementById('textToSummarize').value;
+        navigator.clipboard.writeText(inputText).then(() => {
+            showMessage('Ввод скопирован в буфер обмена', 'success');
+        }).catch(err => {
+            showMessage('Не удалось скопировать ввод: ' + err, 'error');
+        });
+    }
+
+    // Инициализация shared тултипов и загрузка температуры из настроек
+    document.addEventListener('DOMContentLoaded', () => {
+        setupTooltips();
+        // Загрузка температуры из настроек
+        google.script.run.withSuccessHandler(temp => {
+            if (temp !== null) document.getElementById('temperature').value = temp;
+        }).getTemperatureFromClient();
+    });
+</script>
+<script src="shared.js"></script>
+</body>
+</html>

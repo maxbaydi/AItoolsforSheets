@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <style>
+        :root {
+            --background-color: #f0f4f8;
+            --primary-color-1: #ffffff;
+            --primary-color-2: #e0e0e0;
+            --primary-color-3: #2196f3;
+            --text-color: #555555;
+            --text-color-headline: #222222;
+            --text-color-sub: #777777;
+            --button-text-color: #ffffff;
+            --border-color: #e0e0e0;
+            --error-color: #d32f2f;
+            --success-color: #4CAF50;
+            --button-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            --button-hover-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            --input-bg: #ffffff; /*  для textarea и input */
+            --input-text: #222222; /*  для textarea и input */
+            --input-border: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 5px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: flex-start;
+        }
+
+        .container {
+            background-color: transparent;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            width: 100%;
+            max-width: 280px;
+            box-sizing: border-box;
+            padding-bottom: 40px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-color-headline);
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        textarea, input[type="text"], select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            transition: all 0.2s ease;
+        }
+        textarea:focus, input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        textarea::placeholder, input[type="text"]::placeholder, select::placeholder {
+             color: var(--text-color-sub);
+             font-size: 0.85em;
+             font-style: italic;
+         }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap; /*  перенос кнопок */
+        }
+
+        .custom-button, .toggle-button {
+            padding: 8px 16px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            background-color: var(--primary-color-3);
+            color: var(--button-text-color);
+            box-shadow: var(--button-shadow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            min-width: 80px;
+        }
+
+        .custom-button:hover:not(:disabled),
+        .toggle-button:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5;
+            border-color: var(--primary-color-2);
+        }
+
+        .custom-button:active, .toggle-button:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* КНОПКА ОЧИСТИТЬ */
+        .clear-button {
+            background-color: var(--primary-color-1);
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color);
+        }
+        .clear-button:hover {
+             background-color: rgba(255, 255, 255, 0.5);
+             border-color: var(--primary-color-3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .message {
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 8px;
+            display: none;
+            word-wrap: break-word;
+            border: 1px solid transparent;
+            font-weight: 400;
+            opacity: 0.95;
+            font-size: 0.9em;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+
+        .message.error {
+            background-color: #fde0e0;
+            color: #d32f2f;
+            border-color: #fccaca;
+        }
+
+        .message.success {
+            background-color: #e6f4ea;
+            color: var(--success-color);
+            border-color: #c8e6c9;
+        }
+
+        .message.visible {
+            display: block;
+        }
+
+        .examples-container {
+            margin-top: 10px; /*  отступ */
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            background-color: var(--primary-color-1);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+            font-size: 14px;
+            display: none; /*  по умолчанию */
+        }
+
+        .examples-container.visible {
+            display: block; /*  класс visible */
+        }
+
+        .examples-title {
+            font-weight: 600; /*  жирный */
+            margin-bottom: 5px;
+            color: var(--text-color-headline);
+            font-size: 12px;
+        }
+
+        .example-item {
+            padding: 5px;
+            margin-bottom: 3px;
+            background-color: transparent;  /*  фон */
+            color: var(--text-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            /*border: 1px solid transparent; убираем*/
+            box-sizing: border-box;
+        }
+
+        .example-item:hover {
+            background-color: rgba(0, 0, 0, 0.05); /*  фон при наведении */
+            color: var(--text-color-headline);
+            /*border-color: var(--primary-color-3); убираем*/
+        }
+
+        .progress {
+            display: none;
+            margin-top: 10px;
+            text-align: center;
+            color: var(--text-color-headline);
+            font-size: 1em;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: opacity 0.2s ease;
+        }
+
+        .progress.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color-3);
+            animation: spin 0.6s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        .progress-text {
+            margin-top: 5px;
+            font-size: 0.9em;
+            color: var(--text-color-sub);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Стили для сворачиваемого блока */
+        .collapsible-container {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-container.active {
+            max-height: 500px;
+            /*  высота */
+        }
+
+        /* Кнопка-переключатель для добавления шаблона */
+        .toggle-button {
+           margin-bottom: 5px;
+           margin-top: 5px;
+        }
+
+        /* Стили для поля ввода и кнопки добавления шаблона */
+        .input-group {
+            margin-bottom: 10px;
+            display: flex;          /*  flex */
+            flex-direction: column; /*  друг под другом */
+        }
+        .select-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+      }
+
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            color: var(--text-color-sub);
+            pointer-events: none;
+            font-size: 0.8em;
+      }
+       #addTemplateButton {
+           margin-top: 5px;
+           margin-left: auto;
+           margin-right: 0;
+       }
+       #customTemplateInput::placeholder {
+            color: var(--text-color-sub);
+            font-size: 0.85em; /* Размер шрифта */
+            font-style: italic;
+        }
+
+        /*  */
+      input[type="checkbox"] {
+          width: auto;
+          margin-right: 5px;
+       }
+      .checkbox-label {
+           display: flex;
+           align-items: center;  /*  */
+           margin-bottom: 10px;   /*  */
+      }
+
+      .tooltip-container {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background-color: #333333;
+          color: #FFD700;
+          padding: 8px 12px;
+          border-radius: 0 0 8px 8px;
+          font-size: 12px;
+          white-space: pre-line;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.2s ease, visibility 0.2s ease;
+          z-index: 1000;
+          width: 100%;
+          text-align: left;
+          pointer-events: none;
+          line-height: 1.2;
+          box-sizing: border-box;
+      }
+
+      .tooltip-container.visible {
+          opacity: 1;
+          visibility: visible;
+      }
+
+      /* Удаляем старые стили для tooltip */
+      .tooltip {
+          position: relative;
+          display: inline-block;
+      }
+
+      .tooltip .tooltiptext {
+          display: none;
+      }
+
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="input-group tooltip">
+            <label for="query">Введите запрос для создания таблицы:</label>
+            <textarea id="query" placeholder="Например: Сделай таблицу о трех самых кассовых фильмах в истории"></textarea>
+            <span class="tooltiptext">Опишите, какую таблицу вы хотите создать. Чем подробнее описание, тем лучше результат</span>
+        </div>
+
+        <div class="input-group tooltip">
+            <label for="tableStyle">Стиль таблицы:</label>
+            <div class="select-wrapper">
+                <select id="tableStyle">
+                    <option value="normal">Обычный</option>
+                    <option value="short">Краткий</option>
+                    <option value="detailed">Подробный</option>
+                    <option value="withoutHeaders">Без заголовков</option>
+                </select>
+            </div>
+            <span class="tooltiptext">Выберите стиль оформления таблицы</span>
+        </div>
+
+        <div class="input-group tooltip">
+            <label for="keywords">Ключевые слова (через запятую):</label>
+            <input type="text" id="keywords" placeholder="Например: процессор,память,цена">
+            <span class="tooltiptext">Укажите ключевые слова, которые должны быть включены в таблицу</span>
+        </div>
+
+        <div class="checkbox-label tooltip">
+            <label for="includeExamples">Включить примеры в промпт:</label>
+            <input type="checkbox" id="includeExamples" checked>
+            <span class="tooltiptext">Включить примеры в запрос для более точного результата</span>
+        </div>
+
+        <div class="button-group">
+            <button onclick="createTableFromQuery()" id="createButton" class="custom-button tooltip">
+                Создать таблицу
+                <span class="tooltiptext">Начать создание таблицы по заданным параметрам</span>
+            </button>
+            <button onclick="clearForm()" id="clearButton" class="custom-button clear-button tooltip">
+                Очистить
+                <span class="tooltiptext">Очистить все поля формы</span>
+            </button>
+        </div>
+
+        <button onclick="toggleAddTemplate()" class="toggle-button tooltip">
+            + Добавить шаблон
+            <span class="tooltiptext">Добавить новый шаблон запроса для быстрого доступа</span>
+        </button>
+
+        <div class="collapsible-container">
+            <div class="input-group tooltip">
+                <input type="text" id="customTemplateInput" placeholder="Введите ваш шаблон...">
+                <span class="tooltiptext">Введите текст шаблона, который хотите сохранить</span>
+            </div>
+            <button onclick="addCustomTemplate()" id="addTemplateButton" class="custom-button tooltip">
+                Добавить
+                <span class="tooltiptext">Сохранить новый шаблон</span>
+            </button>
+        </div>
+
+        <div id="progress" class="progress">
+            <span class="spinner"></span>
+            <span id="progressStatus">Создание таблицы...</span>
+            <div id="progressText" class="progress-text"></div>
+        </div>
+
+        <div id="error-message" class="message"></div>
+        <div id="status-message" class="message"></div>
+
+        <div class="examples-container">
+            <div class="examples-title">Примеры запросов:</div>
+            <!--  -->
+        </div>
+    </div>
+
+    <script>
+        let addTemplateTimeout;
+
+        class UIManager {
+            static setLoading(isLoading, status = 'Создание таблицы...', details = '') {
+                const button = document.getElementById('createButton');
+                const progress = document.getElementById('progress');
+                const progressStatus = document.getElementById('progressStatus');
+                const progressText = document.getElementById('progressText');
+                
+                button.disabled = isLoading;
+                progress.classList.toggle('visible', isLoading);
+                progressStatus.textContent = status;
+                progressText.textContent = details;
+            }
+
+            static updateProgress(status, details = '') {
+                const progressStatus = document.getElementById('progressStatus');
+                const progressText = document.getElementById('progressText');
+                progressStatus.textContent = status;
+                progressText.textContent = details;
+            }
+
+            static showMessage(message, type = 'status') {
+                const errorElement = document.getElementById('error-message');
+                const statusElement = document.getElementById('status-message');
+                errorElement.classList.remove('visible');
+                statusElement.classList.remove('visible');
+                if (type === 'error') {
+                    errorElement.textContent = message;
+                    errorElement.classList.add('visible');
+                } else {
+                    statusElement.textContent = message;
+                    statusElement.classList.add('visible');
+                }
+            }
+
+            static clearMessages() {
+                document.getElementById('error-message').classList.remove('visible');
+                document.getElementById('status-message').classList.remove('visible');
+            }
+        }
+
+        async function createTableFromQuery() {
+            const query = document.getElementById('query').value.trim();
+            const tableStyle = document.getElementById('tableStyle').value;
+            const keywords = document.getElementById('keywords').value.trim();
+            const includeExamples = document.getElementById('includeExamples').checked;
+
+            if (!validateQuery(query)) return;
+
+            UIManager.setLoading(true);
+            UIManager.clearMessages();
+
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    google.script.run
+                        .withSuccessHandler(resolve)
+                        .withFailureHandler(reject)
+                        //  createTable  НИЖЕ!!!!
+                        .createTable(query, tableStyle, keywords, includeExamples); //  аргументы!
+                });
+
+                UIManager.showMessage(result, 'status');
+                saveToRecentQueriesCreateTable(query);
+            } catch (error) {
+                UIManager.showMessage(error.message || error, 'error');
+            } finally {
+                UIManager.setLoading(false);
+            }
+        }
+
+        function validateQuery(query) {
+            if (!query) {
+                UIManager.showMessage('Введите запрос для создания таблицы', 'error');
+                return false;
+            }
+            if (query.length < 10) {
+                UIManager.showMessage('Запрос слишком короткий. Опишите подробнее, какую таблицу вы хотите создать', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function useExample(element) {
+            document.getElementById('query').value = element.textContent;
+            UIManager.clearMessages();
+        }
+
+
+        function clearForm() {
+            document.getElementById('query').value = '';
+            UIManager.clearMessages();
+            clearTimeout(typingTimer); // Очищаем таймер
+        }
+
+        function saveToRecentQueriesCreateTable(query) { // Исправленное имя функции
+            const recentQueries = JSON.parse(localStorage.getItem('recentQueriesCreateTable') || '[]'); // Добавил CreateTable
+            if (!recentQueries.includes(query)) { // Проверяем, есть ли уже такой запрос
+                recentQueries.unshift(query); // Добавляем в начало массива
+                if (recentQueries.length > 5) recentQueries.pop(); // Удаляем старые
+                localStorage.setItem('recentQueriesCreateTable', JSON.stringify(recentQueries)); // Добавил CreateTable
+            }
+        }
+
+        // Автоматическое сохранение черновика
+        let typingTimer;
+        document.getElementById('query').addEventListener('input', function() {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => {
+                localStorage.setItem('draftQuery', this.value);
+            }, 1000);
+        });
+
+        // Восстановление черновика при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const draftQuery = localStorage.getItem('draftQuery');
+            if (draftQuery) {
+                document.getElementById('query').value = draftQuery;
+            }
+            loadCustomTemplates(); // Загружаем пользовательские шаблоны
+        });
+
+        function addCustomTemplate() {
+            clearTimeout(addTemplateTimeout);
+            addTemplateTimeout = setTimeout(() => {
+                const templateInput = document.getElementById('customTemplateInput');
+                const newTemplate = templateInput.value.trim();
+
+                if (!newTemplate) {
+                    UIManager.showMessage('Введите текст шаблона.', 'error');
+                    return;
+                }
+                if (newTemplate.length < 10) {
+                    UIManager.showMessage('Шаблон слишком короткий.', 'error');
+                    return;
+                }
+
+                let customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+                if (!customTemplates.includes(newTemplate)) { // Проверяем на дубликаты.
+                    customTemplates.push(newTemplate);
+                    localStorage.setItem('customTemplates', JSON.stringify(customTemplates));
+                    templateInput.value = ''; // Очищаем поле ввода
+                    loadCustomTemplates(); // Обновляем список
+                    UIManager.showMessage('Шаблон добавлен', 'success');
+                } else {
+                    UIManager.showMessage('Этот шаблон уже добавлен', 'error');
+                }
+            }, 200); // debounce
+
+        }
+
+
+        function loadCustomTemplates() {
+            const examplesContainer = document.querySelector('.examples-container');
+            let customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+
+            //  существующие примеры
+            const existingExamples = examplesContainer.querySelectorAll('.example-item');
+            existingExamples.forEach(ex => {
+                if (!ex.dataset.default) { //  только добавленные пользователем
+                    ex.remove();
+                }
+            })
+
+            //  новые
+            if (customTemplates.length > 0) { //  если есть шаблоны
+                examplesContainer.classList.add('visible'); //  контейнер
+                customTemplates.forEach(template => { //  шаблоны
+                    const exampleDiv = document.createElement('div');
+                    exampleDiv.classList.add('example-item');
+                    exampleDiv.textContent = template;
+                    exampleDiv.onclick = function() {
+                        useExample(this);
+                    };
+                    exampleDiv.addEventListener('contextmenu', function(e) { // Добавляем обработчик контекстного меню
+                        e.preventDefault();
+                        deleteTemplate(template, exampleDiv);
+                    });
+                    examplesContainer.appendChild(exampleDiv);
+                });
+            } else { //  скрываем
+                examplesContainer.classList.remove('visible');
+            }
+        }
+
+        function deleteTemplate(templateText, element) {
+            if (confirm(`Удалить шаблон "${templateText}"?`)) {
+                let customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+                customTemplates = customTemplates.filter(t => t !== templateText);
+                localStorage.setItem('customTemplates', JSON.stringify(customTemplates));
+                element.remove(); // Удаляем элемент из DOM
+                UIManager.showMessage('Шаблон удален', 'success');
+                loadCustomTemplates();
+            }
+        }
+
+        function toggleAddTemplate() {
+            const container = document.querySelector('.collapsible-container');
+            container.classList.toggle('active'); //  класс active
+        }
+
+
+        // Добавление примеров по умолчанию
+        document.addEventListener('DOMContentLoaded', function() {
+            const examplesContainer = document.querySelector('.examples-container');
+            const defaultExamples = [
+                "Создай таблицу о трех самых популярных социальных сетях",
+                "Сделай сравнительную таблицу iPhone 15 Pro и Samsung S24 Ultra",
+                "Составь таблицу крупнейших IT-компаний и их основателей"
+            ];
+
+            //  если нет пользовательских шаблонов
+            if (!localStorage.getItem('customTemplates') || JSON.parse(localStorage.getItem('customTemplates') || '[]').length === 0) {
+                examplesContainer.classList.add('visible');
+                defaultExamples.forEach(example => {
+                    const exampleDiv = document.createElement('div');
+                    exampleDiv.classList.add('example-item');
+                    exampleDiv.textContent = example;
+                    exampleDiv.onclick = function() {
+                        useExample(this);
+                    };
+                    exampleDiv.dataset.default = 'true'; //  помечаем как дефолтный
+                    examplesContainer.appendChild(exampleDiv);
+                });
+            }
+        });
+
+        // Инициализация тултипов через shared.js
+        document.addEventListener('DOMContentLoaded', () => {
+            setupTooltips();
+        });
+    </script>
+    <script src="shared.js"></script>
+</body>
+</html>

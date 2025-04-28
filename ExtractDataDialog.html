@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <style>
+        /* ... (все стили остаются без изменений) ... */
+        :root {
+            --background-color: #f0f4f8;
+            --primary-color-1: #ffffff;
+            --primary-color-2: #e0e0e0;
+            --primary-color-3: #2196f3;
+            --text-color: #555555;
+            --text-color-headline: #222222;
+            --text-color-sub: #777777;
+            --button-text-color: #ffffff;
+            --border-color: #e0e0e0;
+            --error-color: #d32f2f;
+            --success-color: #4CAF50;
+            --button-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            --button-hover-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            --input-bg: #ffffff;
+            --input-text: #222222;
+            --input-border: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 5px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: flex-start;
+
+        }
+
+        .container {
+            background-color: transparent;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            width: 100%;
+            max-width: 280px;
+            box-sizing: border-box;
+            padding-bottom: 40px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-color-headline);
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            transition: all 0.2s ease;
+        }
+
+        #sourceRange {
+            text-transform: uppercase;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        input[type="text"].error {
+            border-color: var(--error-color);
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-color-sub);
+            font-size: 0.85em;
+            font-style: italic;
+        }
+
+        .custom-button {
+            padding: 8px 16px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            background-color: var(--primary-color-3);
+            color: var(--button-text-color);
+            box-shadow: var(--button-shadow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            min-width: 80px;
+            margin-top: 10px;
+
+        }
+
+        .custom-button:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5;
+            border-color: var(--primary-color-2);
+        }
+
+        .custom-button:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+        }
+
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .message {
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 8px;
+            display: none;
+            word-wrap: break-word;
+            border: 1px solid transparent;
+            font-weight: 400;
+            opacity: 0.95;
+            font-size: 0.9em;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+
+        .message.error {
+            background-color: #fde0e0;
+            color: #d32f2f;
+            border-color: #fccaca;
+        }
+
+        .message.success {
+            background-color: #e6f4ea;
+            color: var(--success-color);
+            border-color: #c8e6c9;
+        }
+
+        .message.visible {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-indicator {
+            display: none;
+            margin-top: 10px;
+            text-align: center;
+            color: var(--text-color-headline);
+            font-size: 1em;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: opacity 0.2s ease;
+        }
+
+        .progress-indicator.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color-3);
+            animation: spin 0.6s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tooltip-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #333333;
+            color: #FFD700;
+            padding: 8px 12px;
+            border-radius: 0 0 8px 8px;
+            font-size: 12px;
+            white-space: pre-line;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 1000;
+            width: 100%;
+            text-align: left;
+            pointer-events: none;
+            line-height: 1.2;
+            box-sizing: border-box;
+        }
+
+        .tooltip-container.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* переключатель режимов */
+        .mode-button-group {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 5px;
+            margin-top: 5px;
+        }
+
+        .mode-button {
+            padding: 8px 16px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            background-color: var(--primary-color-3);
+            color: var(--button-text-color);
+            box-shadow: var(--button-shadow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+        }
+
+        .mode-button:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5;
+            border-color: var(--primary-color-2);
+        }
+
+        .mode-button:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+        }
+
+        .mode-button::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--primary-color-1);
+            transition: left 0.2s ease;
+        }
+
+        .mode-button.mode-row::before {
+            left: 10px;
+        }
+
+        .mode-button.mode-cols::before {
+            left: calc(100% - 26px);
+        }
+
+          input[type="checkbox"] {
+              width: auto;
+              margin-right: 5px;
+           }
+          .checkbox-label {
+               display: flex;
+               align-items: center;
+               margin-bottom: 10px;
+          }
+
+        /* Удаляем старые стили для tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="input-group tooltip">
+            <label for="sourceRange">Диапазон с данными:</label>
+            <input type="text" id="sourceRange" placeholder="A1:M11 или A1">
+            <span class="tooltiptext">Укажите диапазон (A1:B2) или ячейку (A1). Оставьте пустым, чтобы использовать выделенный диапазон</span>
+        </div>
+        <div class="input-group tooltip">
+            <label for="headers">Заголовки данных (через запятую):</label>
+            <input type="text" id="headers" placeholder="Например: Название, Цена, Скидка">
+            <span class="tooltiptext">Перечислите заголовки через запятую, например: "Имя, Телефон, Email". Порядок важен!</span>
+        </div>
+
+        <div class="input-group tooltip">
+            <label>Режим вставки:</label>
+            <div class="mode-button-group">
+                <button id="modeButton" class="mode-button mode-row tooltip" onclick="toggleInsertMode()">
+                    В одну строку
+                    <span class="tooltiptext">Переключить режим вставки данных (в одну строку / по строкам)</span>
+                </button>
+            </div>
+        </div>
+        <!--<div class="checkbox-label">
+              <input type="checkbox" id="add-labels-checkbox">
+              <label for="add-labels-checkbox">Добавить пояснения:</label>
+         </div>
+         <div class="tooltip">
+              <span class="tooltiptext">Добавлять пояснения к извлечённым данным (например, "Адрес: ...")</span>
+         </div>-->
+
+        <button onclick="extractDataFromDialog()" id="extractButton" class="custom-button tooltip">
+            Извлечь данные
+            <span class="tooltiptext">Начать процесс извлечения данных из указанного диапазона</span>
+        </button>
+            <div class="progress-indicator" id="progressIndicator">
+            <span class ="spinner"></span>  Обработка...
+            </div>
+          <div id="error-message" class="message error"></div>
+          <div id="status-message" class ="message success"></div>
+        </div>
+<script>
+    let insertMode = 'row'; // Режим вставки по умолчанию - строка
+    const modeButton = document.getElementById('modeButton');
+
+    // Инициализация тултипов и загрузка настроек при старте
+    document.addEventListener('DOMContentLoaded', () => {
+        setInsertMode(insertMode);
+        setupTooltips();
+        // Загрузка температуры из настроек
+        google.script.run.withSuccessHandler(temp => {
+            if (temp !== null) document.getElementById('temperature').value = temp;
+        }).getTemperatureFromClient();
+    });
+
+  //  функции показа/скрытия сообщений
+    function showMessage(message, type) {
+      const messageElement = document.getElementById(`${type}-message`);
+      if (messageElement) {
+        messageElement.textContent = message;
+        messageElement.classList.add('visible');
+      }
+    }
+
+    function hideMessage(elementId) {
+        const el = document.getElementById(elementId);
+        if (el) {
+            el.textContent = '';
+            el.classList.remove('visible');
+        }
+    }
+
+    function toggleInsertMode() {
+        insertMode = insertMode === 'row' ? 'cols' : 'row';
+        modeButton.classList.toggle('mode-row', insertMode === 'row');
+        modeButton.classList.toggle('mode-cols', insertMode === 'cols');
+        modeButton.textContent = insertMode === 'row' ? 'В одну строку' : 'По строкам';
+    }
+
+
+async function extractDataFromDialog() {
+    const sourceRangeElement = document.getElementById('sourceRange');
+    const headersElement = document.getElementById('headers');
+    let sourceRange = sourceRangeElement.value.trim();
+    const headers = headersElement.value.trim();
+
+
+    hideMessage('error-message');
+    hideMessage('status-message');
+
+    sourceRangeElement.classList.remove('error'); //  CSS класс ошибки
+    headersElement.classList.remove('error');
+
+    let finalSourceRange = sourceRange;
+    if (!finalSourceRange) {
+        try {
+            finalSourceRange = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler(range => resolve(range))
+                    .withFailureHandler(err => reject(err))
+                    .getSelectedRangeA1Notation();
+            });
+            if (!finalSourceRange) throw new Error('Не указан и не выделен диапазон с данными.');
+        } catch (error) {
+            showMessage(error.message, 'error');
+            sourceRangeElement.classList.add('error'); //  красную рамку
+            return;
+        }
+    }
+
+    if (!headers) {
+        showMessage("Укажите заголовки данных.", 'error');
+        headersElement.classList.add('error'); //  красную рамку
+        return;
+    }
+
+    const progressIndicator = document.getElementById('progressIndicator');
+    const extractButton = document.getElementById('extractButton');
+    if (progressIndicator) {
+        progressIndicator.style.display = 'block';
+    }
+    extractButton.disabled = true;
+
+    try {
+        const result = await google.script.run
+            .withSuccessHandler(result => {
+                showMessage('Данные извлечены.', 'success');
+                if (progressIndicator) {
+                    progressIndicator.style.display = 'none';
+                }
+                extractButton.disabled = false;
+            })
+            .withFailureHandler(error => {
+                showMessage(error.message, 'error');
+                if (progressIndicator) {
+                    progressIndicator.style.display = 'none';
+                }
+                extractButton.disabled = false;
+            })
+            .extractData(finalSourceRange, headers, 'csv', insertMode); //  'csv'
+    } catch (error) {
+        showMessage(error.message, 'error');
+         if (progressIndicator) {
+              progressIndicator.style.display = 'none';
+          }
+        extractButton.disabled = false;
+    }
+}
+// Подключаем shared.js и тултипы
+</script>
+<script src="shared.js"></script>
+</body>
+</html>

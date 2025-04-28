@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <style>
+       :root {
+            /*  переменные :root остаются без изменений */
+            --background-color: #f0f4f8;
+            --primary-color-1: #ffffff;
+            --primary-color-2: #e0e0e0;
+            --primary-color-3: #2196f3;
+            --text-color: #555555;
+            --text-color-headline: #222222;
+            --text-color-sub: #777777;
+            --button-text-color: #ffffff;
+            --border-color: #e0e0e0;
+            --error-color: #d32f2f;
+            --success-color: #4CAF50;
+            --button-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            --button-hover-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            --input-bg: #ffffff;
+            --input-text: #222222;
+            --input-border: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 5px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: flex-start;
+        }
+
+       .container {
+            background-color: transparent;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.3);
+            width: 100%;
+            max-width: 280px;
+            box-sizing: border-box;
+            padding-bottom: 40px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+        /*  стиль для горизонтального input-group */
+        .input-group-row {
+            display: flex;          /*  flex контейнер */
+            align-items: center;     /*  выравнивание элементов по центру ВЕРТИКАЛИ */
+            gap: 10px;          /*  расстояние между элементами */
+        }
+
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-color-headline);
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        /* Стиль для label сверху поля ввода - УПРОЩЕН */
+        label.top-label {
+          display: block;
+          margin-bottom: 5px; /*  отступ от label до поля ввода */
+        }
+
+
+       input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 5px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            backdrop-filter: blur(3px);
+            transition: all 0.2s ease;
+            /*flex-grow: 1;  поле ввода занимает доступное место */
+            /*min-width: 0;  для правильного сжатия */
+            text-align: left; /*  Выравнивание текста по левому краю */
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+       }
+
+       input[type="text"]::placeholder, input[type="number"]::placeholder {
+            color: var(--text-color-sub);
+            font-size: 0.85em; /* Размер шрифта */
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            flex-wrap: wrap;/*добавил перенос, если кнопок будет много*/
+            justify-content: space-between;/* Добавил */
+        }
+        .button-group-column {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-top: 10px;
+        }
+
+       .custom-button {
+            padding: 8px 16px;
+            border: 1px solid transparent; /* Добавляем прозрачную границу */
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            background-color: var(--primary-color-3);
+            color: var(--button-text-color);
+            box-shadow: var(--button-shadow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex; /* Используем flexbox */
+            align-items: center;
+            justify-content: center;
+            width: auto; /* Автоматическая ширина */
+            min-width: 20px; /* Минимальная ширина */
+        }
+
+       .custom-button:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5; /* Немного меняем цвет */
+            border-color: var(--primary-color-2); /* Добавляем границу при наведении */
+        }
+      .custom-button:active{
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+       }
+       /* КНОПКА ОЧИСТИТЬ */
+       .delete-button {
+            background-color: var(--primary-color-1); /* Белый фон */
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color); /* Рамка */
+           /* добавил */
+            padding: 6px 10px;
+            font-size: 0.75em;
+            width: auto;
+        }
+        .delete-button:hover {
+             background-color: rgba(255, 255, 255, 0.5); /* Фон при наведении */
+             border-color: var(--primary-color-3); /* Цвет границы */
+         }
+       button:disabled {
+            opacity: 0.5; /* Полупрозрачность */
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+
+        #error-message,
+        #status-message {
+            padding: 10px;
+            margin-top: 15px; /* Отступ сверху */
+            border-radius: 8px;
+            display: none;
+            word-wrap: break-word;
+            border: 1px solid transparent; /* Прозрачная граница */
+            font-weight: 400;
+            opacity: 0.95;
+            font-size: 0.9em; /* Размер текста */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+      .message.error {
+            background-color: #fde0e0; /* Цвет фона */
+            color: #d32f2f; /* Цвет текста */
+            border-color: #fccaca;
+         }
+
+      .message.success {
+            background-color: #e6f4ea; /* Цвет фона */
+            color:  var(--success-color);
+            border-color: #c8e6c9;
+         }
+
+       .message.visible {
+            display: block; /* Показываем сообщение */
+        }
+      /*  */
+      @keyframes fadeIn {
+          from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+        .progress-indicator {
+            display: none; /* Скрыт по умолчанию */
+            margin-top: 10px;/* Отступ сверху */
+            text-align: center;
+            color: var(--text-color-headline); /* Цвет текста */
+            font-size: 1em; /* Размер шрифта */
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            transition: opacity 0.2s ease;
+        }
+      .progress-indicator.visible {
+            display: block;
+            opacity: 1; /* Показываем с анимацией */
+        }
+
+       .spinner {
+             display: inline-block;
+             width: 16px;  /* Уменьшаем размер спиннера */
+             height: 16px; /* Уменьшаем размер спиннера */
+             border: 2px solid rgba(255, 255, 255, 0.3); /* Цвет фона спиннера */
+             border-radius: 50%;
+             border-top-color: var(--primary-color-3); /* Цвет вращающейся части */
+             animation: spin 0.6s linear infinite; /* Ускоряем анимацию */
+             margin-right: 6px; /* Отступ справа */
+             vertical-align: middle;
+         }
+       @keyframes spin {
+          0%   { transform: rotate(0deg);   }
+          100% { transform: rotate(360deg); }
+       }
+       /*  стиль для кнопки "Сбросить температуру" */
+        #resetTemperatureButton {
+            text-transform: uppercase;
+            font-size: 0.75em;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+            color: var(--button-text-color);
+            box-shadow: var(--button-shadow);
+            padding: 6px 12px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: auto; /*  авто ширина */
+            height: auto;
+            background-color: var(--primary-color-1); /* Белый фон */
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color); /* Рамка */
+        }
+
+        #resetTemperatureButton:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5; /* Немного меняем цвет */
+            border-color: var(--primary-color-2); /* Добавляем границу при наведении */
+        }
+        #resetTemperatureButton:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+       }
+        /* Новые стили для общего сброса */
+        #resetAllSettingsButton {
+            background-color: var(--primary-color-1); /* Белый фон */
+            color: var(--text-color-headline);
+            border: 1px solid var(--border-color); /* Рамка */
+            margin-top: 10px; /* Добавляем отступ сверху */
+            /* Другие стили, если нужно */
+        }
+         #resetAllSettingsButton:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            transform: translateY(-1px) scale(1.02);
+            background-color: #1e88e5; /* Немного меняем цвет */
+            border-color: var(--primary-color-2); /* Добавляем границу при наведении */
+        }
+        #resetAllSettingsButton:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transform: translateY(0) scale(0.98);
+       }
+       /* Добавляем стиль для чекбокса */
+       .checkbox-label {
+           display: flex;
+           align-items: center;
+           margin-bottom: 10px;
+       }
+
+       #freeOnlyCheckbox {
+           margin-right: 5px;
+           /*  стили, если нужно */
+       }
+
+       /* Стили для выпадающего списка */
+        #modelSelect {
+            width: 100%; /* Полная ширина */
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+            appearance: none; /* Убираем стандартную стрелку */
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #modelSelect:focus {
+            outline: none;
+            border-color: var(--primary-color-3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+          /* Добавляем кастомную стрелку */
+        .select-wrapper {
+              position: relative;
+              display: inline-block;
+              width: 100%;
+        }
+        .select-wrapper::after {
+              content: '▼';
+              position: absolute;
+              top: 50%;
+              right: 10px;
+              transform: translateY(-50%);
+              color: var(--text-color-sub);
+              pointer-events: none; /*  не кликабельно */
+              font-size: 0.8em;
+        }
+      /*  */
+      .quick-select {
+            margin-top: 5px; /*  отступ */
+            display: none;    /*  flex */
+            /*flex-wrap: wrap;   перенос */
+            gap: 5px;      /*  промежутки */
+        }
+
+        .language-chip {
+             padding: 5px;      /*  отступы */
+             background-color: var(--primary-color-1); /* Фон */
+             border-radius: 4px;
+             text-align: center;
+             cursor: pointer;
+             transition: all 0.2s ease;
+             color: var(--text-color-headline); /* Цвет текста */
+             border: 1px solid var(--border-color); /* Рамка */
+             font-size: 12px; /* Размер шрифта */
+         }
+
+         .language-chip:hover {
+             background-color: rgba(0, 0, 0, 0.05);
+             color: var(--text-color);
+             border-color: var(--primary-color-3);
+         }
+        /* Стили для кнопок выбора языка */
+       .lang-button {
+            /*  общие стили от .custom-button вручную не применяются, используйте оба класса */
+            width: 22px;  /*  ширина */
+            height: 20px; /*  высота */
+            padding: 0;   /*  отступы */
+            font-size: 10px; /*  размер, можно еще уменьшить */
+            border-radius: 4px; /*  НЕ круглые */
+            margin: 0 2px;      /*  отступы */
+            line-height: 1;
+       }
+        /*  контейнер для кнопок */
+        #langButtonsContainer {
+           margin-top: 5px;
+           margin-bottom: 20px;
+           display: flex;
+           flex-wrap: nowrap; /*  перенос */
+           gap: 2px;
+           justify-content: flex-start;/*выровнял по левому краю*/
+
+        }
+
+        .tooltip-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #333333;
+            color: #FFD700;
+            padding: 8px 12px;
+            border-radius: 0 0 8px 8px;
+            font-size: 12px;
+            white-space: pre-line;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 1000;
+            width: 100%;
+            text-align: left;
+            pointer-events: none;
+            line-height: 1.2;
+            box-sizing: border-box;
+        }
+
+        .tooltip-container.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="input-group tooltip">
+            <label for="language">Введите название языка:</label>
+            <input type="text" id="language" placeholder="Например: Немецкий" autocomplete="off">
+            <span class="tooltiptext">Введите название языка, на который нужно перевести текст</span>
+            <div id="langButtonsContainer">
+                <button class="custom-button lang-button tooltip" onclick="selectLanguage('Английский')">
+                    EN
+                    <span class="tooltiptext">Перевести на английский</span>
+                </button>
+                <button class="custom-button lang-button tooltip" onclick="selectLanguage('Русский')">
+                    RU
+                    <span class="tooltiptext">Перевести на русский</span>
+                </button>
+                <button class="custom-button lang-button tooltip" onclick="selectLanguage('Китайский')">
+                    CH
+                    <span class="tooltiptext">Перевести на китайский</span>
+                </button>
+            </div>
+        </div>
+      <div class="input-group tooltip">
+            <label for="temperature" class="top-label">Температура (0-1):</label>
+            <div class="input-group input-group-row">
+                <input type="number" id="temperature" step="0.01" min="0" max="1" placeholder="0.1">
+                <button onclick="resetTemperature('temperature')" class="custom-button delete-button tooltip">
+                    Сброс
+                    <span class="tooltiptext">Сбросить значение температуры</span>
+                </button>
+            </div>
+            <span class="tooltiptext">Влияет на креативность перевода. От 0 (более точный) до 1 (более творческий)</span>
+        </div>
+
+        <!--  Убираем quick-select -->
+        <!-- <div class="quick-select">
+            <div class="language-chip" onclick="selectLanguage('Английский')">Английский</div>
+            <div class="language-chip" onclick="selectLanguage('Немецкий')">Немецкий</div>
+            <div class="language-chip" onclick="selectLanguage('Французский')">Французский</div>
+            <div class="language-chip" onclick="selectLanguage('Испанский')">Испанский</div>
+            <div class="language-chip" onclick="selectLanguage('Китайский')">Китайский</div>
+        </div> -->
+
+        <div class="button-group">
+            <!--  Убрал кнопку "Отмена" -->
+            <button onclick="translateCell()" id="translateButton" class="custom-button tooltip">
+                Перевести
+                <span class="tooltiptext">Начать процесс перевода выделенного текста</span>
+            </button>
+        </div>
+
+        <div id="progress" class="progress-indicator">
+            <span class="spinner"></span>  Перевод...
+        </div>
+
+        <div id="error-message" class="message"></div>
+        <div id="status-message" class="message"></div>
+    </div>
+
+    <script>
+        let isTranslating = false;
+
+        class UIManager {
+            static setLoading(isLoading) {
+                const button = document.getElementById('translateButton');
+                const progress = document.getElementById('progress');
+                button.disabled = isLoading;
+                progress.classList.toggle('visible', isLoading);
+            }
+
+            static showMessage(message, type = 'status') {
+                const errorElement = document.getElementById('error-message');
+                const statusElement = document.getElementById('status-message');
+          			errorElement.classList.remove('visible');
+          			statusElement.classList.remove('visible');
+                if (type === 'error') {
+                    errorElement.textContent = message;
+                    errorElement.classList.add('visible');
+                } else {
+                    statusElement.textContent = message;
+                    statusElement.classList.add('visible');
+                }
+            }
+
+            static clearMessages() {
+                document.getElementById('error-message').classList.remove('visible');
+                document.getElementById('status-message').classList.remove('visible');
+            }
+        }
+
+       function resetTemperature(fieldId) {
+          document.getElementById(fieldId).value = ''; // fieldId
+       }
+
+        function selectLanguage(language) {
+            document.getElementById('language').value = language;
+            UIManager.clearMessages();
+        }
+
+        async function translateCell() {
+            const language = document.getElementById('language').value.trim();
+            let temperature = document.getElementById('temperature').value.trim(); //  из поля
+           if (temperature) {  //  в число
+               temperature = parseFloat(temperature);
+               if (isNaN(temperature) || temperature < 0 || temperature > 1) {
+                   UIManager.showMessage('Неверное значение температуры.  Должно быть число от 0 до 1.', 'error');
+                    return;
+               }
+           } else {
+                temperature = null;  //  null
+           }
+
+            if (!validateInput(language)) return;
+
+            isTranslating = true; //  убрал
+            UIManager.setLoading(true);
+            UIManager.clearMessages();
+
+            try {
+                const range = await getSelectedRange();
+                if (!range) {
+                    throw new Error('Не выбран диапазон для перевода');
+                }
+                const result = await new Promise((resolve, reject) => {
+                    google.script.run
+                        .withSuccessHandler(resolve)
+                        .withFailureHandler(reject)
+                        .translateRange(language, range, temperature);  //  температуру!
+                });
+
+                UIManager.showMessage(result, 'status');  //  result
+                //setTimeout(() => google.script.host.close(), 2000); //  close - лишнее
+            } catch (error) {
+                UIManager.showMessage(error.message || 'Произошла ошибка при переводе', 'error');
+            } finally {
+                isTranslating = false; //  убрал
+                UIManager.setLoading(false);
+            }
+        }
+
+        function validateInput(language) {
+            if (!language) {
+                UIManager.showMessage('Введите название языка', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function getSelectedRange() {
+            return new Promise((resolve, reject) => { // Добавил reject
+                google.script.run
+                    .withSuccessHandler(resolve)
+                    .withFailureHandler((err) => { // Исправил обработку ошибок
+                        UIManager.showMessage('Ошибка получения выбранного диапазона: ' + err.message, 'error');
+                        reject(err); // Reject
+                    })
+                    .getSelectedRangeA1Notation();
+            });
+        }
+
+        // Обработка нажатия Enter в поле ввода
+        document.getElementById('language').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                translateCell();
+            }
+        });
+
+        // Сохранение последнего использованного языка
+        document.addEventListener('DOMContentLoaded', function () {
+            const lastLanguage = localStorage.getItem('lastUsedLanguage');
+            if (lastLanguage) {
+                document.getElementById('language').value = lastLanguage;
+            }
+            //  загружаем температуру
+            loadInitialTemperature();
+        });
+
+         //Сохранение языка при переводе
+        const originalTranslateCell = translateCell;
+        translateCell = async function(){
+            const language = document.getElementById('language').value.trim();
+            if(language){
+                localStorage.setItem('lastUsedLanguage', language);
+            }
+            await originalTranslateCell();
+        }
+
+      function loadInitialTemperature() { //  функция
+          google.script.run.withSuccessHandler(temperature => {
+          if (temperature) {
+              document.getElementById('temperature').value = temperature;
+          }
+          }).getTemperatureFromClient();
+      }
+
+      // Инициализация всплывающих подсказок из shared.js
+      document.addEventListener('DOMContentLoaded', () => {
+          setupTooltips();
+      });
+
+    </script>
+    <script src="shared.js"></script>
+</body>
+</html>

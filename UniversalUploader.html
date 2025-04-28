@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <style>
+      /* Стили */
+      :root {
+          --background-color: #f0f4f8;
+          --primary-color-1: #ffffff;
+          --primary-color-2: #e0e0e0;
+          --primary-color-3: #2196f3;
+          --text-color: #555555;
+          --text-color-headline: #222222;
+          --text-color-sub: #777777;
+          --button-text-color: #ffffff;
+          --border-color: #e0e0e0;
+          --error-color: #d32f2f;
+          --success-color: #4CAF50;
+          --button-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+          --button-hover-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+          --drop-area-bg: rgba(240, 244, 248, 0.7);
+          --drop-area-border: #2196f3;
+          --select-bg: #ffffff;
+          --select-text: #222222;
+          --select-border: #e0e0e0;
+          --select-focus-border: #2196f3;
+          --select-arrow-color: #777777;
+          --input-border: #e0e0e0;
+      }
+      body {
+        font-family: 'Roboto', sans-serif;
+        margin: 0;
+        padding: 5px;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        font-size: 10px;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        justify-content: flex-start;
+       }
+     .container {
+        background-color: transparent;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        width: 100%;
+        max-width: 280px;
+        box-sizing: border-box;
+        position: relative;
+        padding-bottom: 40px; /* Добавляем отступ снизу для подсказок */
+      }
+      h2 {
+        color: var(--text-color-headline);
+        margin-bottom: 15px;
+        text-align: center;
+        font-size: 1.5em;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+      }
+     .custom-button {
+        padding: 8px 16px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 12px;
+        transition: all 0.2s ease;
+        background-color: var(--primary-color-3);
+        color: var(--button-text-color);
+        box-shadow: var(--button-shadow);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: auto;
+        min-width: 60pxы;
+     }
+    .custom-button:hover:not(:disabled) {
+      box-shadow: var(--button-hover-shadow);
+      transform: translateY(-1px) scale(1.02);
+      background-color: #1e88e5;
+      border-color: var(--primary-color-2);
+    }
+    .custom-button:active {
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transform: translateY(0) scale(0.98);
+    }
+    /* Используем псевдоэлемент :is() или просто дублируем для file-input-label */
+    #file-input-label {
+        padding: 8px 16px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 12px;
+        transition: all 0.2s ease;
+        background-color: var(--primary-color-3);
+        color: var(--button-text-color);
+        box-shadow: var(--button-shadow);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: auto;
+        min-width: 80px;
+    }
+     #file-input-label:hover:not(:disabled) {
+      box-shadow: var(--button-hover-shadow);
+      transform: translateY(-1px) scale(1.02);
+      background-color: #1e88e5;
+      border-color: var(--primary-color-2);
+    }
+    #file-input-label:active {
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transform: translateY(0) scale(0.98);
+    }
+
+    #file-input {
+       display: none;
+    }
+   #drop-area {
+     border: 2px dashed var(--drop-area-border);
+     border-radius: 8px;
+     padding: 20px;
+     text-align: center;
+     background-color: var(--drop-area-bg);
+     margin-top: 15px;
+     margin-bottom: 10px;
+     cursor: pointer;
+     min-height: 100px;
+     display: flex;
+     flex-direction: column;
+     justify-content: center;
+     align-items: center;
+     transition: all 0.2s ease-in-out;
+     font-size: 12px;
+     color: var(--text-color-sub);
+    }
+   #drop-area > div {
+     margin-bottom: 5px;
+   }
+   #drop-area:hover {
+     transform: scale(1.01);
+     background-color: rgba(240, 244, 248, 0.8);
+     border-color: var(--primary-color-3);
+    }
+   .button-container {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+   }
+ .progress-indicator {
+   display: none;
+   margin-top: 10px;
+   text-align: center;
+   color: var(--text-color-headline);
+   font-size: 1em;
+   font-weight: 600;
+   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+   transition: opacity 0.2s ease;
+  }
+ .progress-indicator.visible {
+  display: block;
+   opacity: 1;
+  }
+ .spinner {
+   display: inline-block;
+   width: 16px;
+   height: 16px;
+   border: 2px solid rgba(255, 255, 255, 0.3);
+   border-radius: 50%;
+   border-top-color: var(--primary-color-3);
+   animation: spin 0.6s linear infinite;
+   margin-right: 6px;
+   vertical-align: middle;
+  }
+ @keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+ }
+ .file-info {
+  font-size: 0.9em;
+   color: var(--text-color-sub);
+   margin-top: 5px;
+ }
+.message {
+   padding: 10px;
+   margin-top: 15px;
+   border-radius: 8px;
+   display: none;
+   word-wrap: break-word;
+   border: 1px solid transparent;
+   font-weight: 400;
+   opacity: 0.95;
+   font-size: 0.9em;
+   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+   transition: all 0.2s ease;
+ }
+.message.error {
+   background-color: #fde0e0;
+   color: #d32f2f;
+   border-color: #fccaca;
+ }
+.message.success {
+    background-color: #e6f4ea;
+    color: var(--success-color);
+    border-color: #c8e6c9;
+ }
+.message.visible {
+   display: block;
+}
+#sheet-select {
+   width: 100%;
+   padding: 8px;
+   box-sizing: border-box;
+    margin-bottom: 10px;
+    border: 1px solid var(--select-border);
+    border-radius: 8px;
+    background-color: var(--select-bg);
+    color: var(--select-text);
+    font-family: inherit;
+    font-size: 14px;
+   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+   appearance: none;
+   cursor: pointer;
+   transition: all 0.2s ease;
+  }
+#sheet-select:focus {
+   outline: none;
+   border-color: var(--select-focus-border);
+   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+ .select-wrapper {
+   position: relative;
+   display: inline-block;
+    width: 100%;
+ }
+.select-wrapper::after {
+   content: '▼';
+   position: absolute;
+   top: 50%;
+   right: 10px;
+   transform: translateY(-50%);
+   color: var(--select-arrow-color);
+   pointer-events: none;
+    font-size: 0.8em;
+ }
+ #header-row-input::placeholder {
+    color: var(--text-color-sub);
+   font-size: 0.85em;
+    font-style: italic;
+}
+ /* Убрали #sheet-select-container */
+
+ .input-group {
+  display: flex;
+    flex-direction: column;
+  width: 100%;
+   margin-bottom: 5px;
+  }
+ .file-name-label {
+    font-size: 0.9em;
+    color: var(--text-color);
+    margin-bottom: 5px;
+   text-align: center;
+   word-break: break-all;
+  }
+ /* Используем псевдоэлемент :is() или дублируем для .clear-file-button */
+  .clear-file-button, .reset-button, #toggle-headers-button, .template-button {
+      padding: 6px 10px;
+      font-size: 0.75em;
+      width: auto;
+      background-color: var(--background-color);
+      color: var(--text-color-headline);
+      border: 1px solid var(--border-color);
+  }
+
+  .clear-file-button:hover, .reset-button:hover, #toggle-headers-button:hover, .template-button:hover {
+       background-color: rgba(255, 255, 255, 0.5);
+       border-color: var(--primary-color-3);
+   }
+ /* Стили для кнопок Загрузить/Удалить шаблон */
+ .template-button {
+      padding: 6px 10px;
+      font-size: 0.75em;
+      width: auto;
+      background-color: var(--background-color);
+      color: var(--text-color-headline);
+      border: 1px solid var(--border-color);
+  }
+
+ /* Стиль для кнопки Сбросить */
+ .reset-button {
+     padding: 6px 10px;
+     font-size: 0.75em;
+     width: auto;
+     background-color: var(--background-color);
+     color: var(--text-color-headline);
+     border: 1px solid var(--border-color);
+  }
+
+ #toggle-headers-button {
+     padding: 6px 10px;
+     font-size: 0.75em;
+     width: auto;
+     background-color: var(--background-color);
+     color: var(--text-color-headline);
+     border: 1px solid var(--border-color);
+     margin-bottom: 5px;
+ }
+
+ #advanced-settings {
+    margin-top: 10px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease-out;
+}
+
+#advanced-settings.expanded {
+    max-height: 1000px;
+}
+
+.advanced-settings-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+#advanced-settings-toggle {
+    margin-bottom: 0; /* Убираем нижний отступ, так как он теперь у контейнера */
+    width: 100%; /* Делаем кнопку немного уже контейнера */
+    min-width: 100%;
+    padding: 6px 16px;
+    font-size: 10px;
+    height: 16px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    background-color: var(--primary-color-3);
+    color: var(--button-text-color);
+    box-shadow: var(--button-shadow);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#advanced-settings-toggle:hover:not(:disabled) {
+    box-shadow: var(--button-hover-shadow);
+    transform: translateY(-1px) scale(1.02);
+    background-color: #1e88e5;
+    border-color: var(--primary-color-2);
+}
+
+#advanced-settings-toggle:active {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transform: translateY(0) scale(0.98);
+}
+
+#target-headers-list {
+     max-height: 150px;
+     overflow-y: auto;
+     border: 1px solid var(--border-color);
+     padding: 5px;
+     border-radius: 4px;
+     margin-bottom: 5px;
+ }
+ .header-checkbox-label {
+    display: flex;
+    align-items: center;
+   margin-right: 10px;
+   margin-bottom: 5px;
+    white-space: nowrap;
+   font-size: 12px;
+  }
+  .header-checkbox {
+     margin-right: 4px;
+  }
+  input[type="checkbox"] {
+     width: auto;
+     margin-right: 5px;
+  }
+ .checkbox-label {
+  display: flex;
+   align-items: center;
+   margin-bottom: 10px;
+ }
+ #ai-instructions {
+    width: 100%;
+   height: 80px;
+   padding: 8px;
+   box-sizing: border-box;
+   margin-bottom: 10px;
+   border: 1px solid var(--border-color);
+   border-radius: 4px;
+    font-size: 14px;
+   resize: vertical;
+}
+#ai-instructions::placeholder {
+  color: var(--text-color-sub);
+   font-size: 0.85em;
+   font-style: italic;
+ }
+ #template-container { /* Контейнер для СОХРАНЕНИЯ */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+  }
+ #template-select { /* Выпадающий список ЗАГРУЗКИ */
+   flex-grow: 1;
+   padding: 6px;
+   font-size: 12px;
+   border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--select-bg);
+}
+#template-name-input { /* Поле для имени при СОХРАНЕНИИ */
+  flex-grow: 1;
+    padding: 6px;
+  font-size: 12px;
+   border: 1px solid var(--border-color);
+   border-radius: 4px;
+ }
+#template-name-input::placeholder {
+   color: var(--text-color-sub);
+    font-size: 0.85em;
+   font-style: italic;
+  }
+
+ #page-range-input::placeholder {
+    color: var(--text-color-sub);
+      font-size: 0.85em;
+      font-style: italic;
+    }
+  /* Убрали #page-range-container */
+
+  .collapsible {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease-out;
+      margin-top: 5px;
+   }
+  .collapsible.expanded {
+      max-height: 200px;
+      margin-bottom: 5px;
+   }
+
+    /* Контейнер для загрузки/удаления шаблонов */
+   .template-action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
+
+    /* Новый контейнер для опций файла */
+    #file-options-container {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+    .file-option {
+        display: flex;
+        flex-direction: column;
+        flex-basis: auto;
+    }
+     .file-option label {
+         margin-bottom: 3px;
+         white-space: nowrap;
+     }
+     .file-option select,
+     .file-option input[type="number"],
+     .file-option input[type="text"] {
+         margin-bottom: 0;
+         width: auto;
+         min-width: 80px;
+          /* Общие стили для полей ввода в file-option */
+         padding: 8px;
+         box-sizing: border-box;
+         border: 1px solid var(--input-border);
+         border-radius: 4px;
+         font-size: 14px;
+     }
+      .file-option select:focus,
+      .file-option input[type="number"]:focus,
+      .file-option input[type="text"]:focus {
+         outline: none;
+         border-color: var(--primary-color-3);
+         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      }
+
+     #sheet-option select {
+         min-width: 120px;
+     }
+     #header-row-option input {
+        width: 60px;
+        min-width: 60px;
+        text-align: center;
+     }
+     #page-range-option input {
+        width: 100px;
+        min-width: 100px;
+     }
+     #sheet-option, #page-range-option {
+         display: none;
+     }
+
+.template-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.template-controls .custom-select {
+    flex: 1;
+    width: 70%;
+    padding: 6px;
+    font-size: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--select-bg);
+}
+
+.template-controls .template-button {
+    width: 30%;
+    padding: 6px 10px;
+    font-size: 12px;
+    background-color: var(--background-color);
+    color: var(--text-color-headline);
+    border: 1px solid var(--border-color);
+}
+
+.template-controls .template-button:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+    border-color: var(--primary-color-3);
+}
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:before {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 8px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 10px;
+    border-radius: 4px;
+    white-space: pre-line;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    z-index: 1000;
+    width: max-content;
+    max-width: 250px;
+    text-align: center;
+    pointer-events: none;
+    line-height: 1.2;
+    margin-top: 5px;
+}
+
+[data-tooltip]:after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: rgba(0, 0, 0, 0.8);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    margin-top: -1px;
+}
+
+[data-tooltip]:hover:before {
+    opacity: 1;
+    visibility: visible;
+}
+
+[data-tooltip]:hover:after {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tooltip-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #333333;
+    color: #FFD700;
+    padding: 8px 12px;
+    border-radius: 0 0 8px 8px;
+    font-size: 12px;
+    white-space: pre-line;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    z-index: 1000;
+    width: 100%;
+    text-align: left;
+    pointer-events: none;
+    line-height: 1.2;
+    box-sizing: border-box;
+}
+
+.tooltip-container.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Удаляем старые стили для tooltip */
+[data-tooltip]:before,
+[data-tooltip]:after {
+    display: none;
+}
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    text-align: center;
+    border-radius: 3px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.9em;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+#extract-button {
+    padding: 8px 16px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    background-color: var(--primary-color-3);
+    color: var(--button-text-color);
+    box-shadow: var(--button-shadow);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 80px;
+    flex: 1; /* Делаем кнопку шире */
+    margin-right: 5px; /* Добавляем отступ справа */
+}
+
+#extract-button:hover:not(:disabled) {
+    box-shadow: var(--button-hover-shadow);
+    transform: translateY(-1px) scale(1.02);
+    background-color: #1e88e5;
+    border-color: var(--primary-color-2);
+}
+
+#extract-button:active {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transform: translateY(0) scale(0.98);
+}
+
+#extract-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+    </style>
+     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+ <div class="container">
+    <h2>Загрузка и извлечение данных</h2>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.txt,.ods,.docx,.doc">
+
+    <div id="drop-area" data-tooltip="Перетащите файл сюда или кликните для выбора.
+Поддерживаемые форматы:
+• Excel (.xlsx, .xls)
+• Word (.docx, .doc)
+• CSV
+• TXT
+• ODS
+Максимальный размер файла: 10MB">
+        <div>Перетащите файл сюда</div>
+        <div class="file-info">или нажмите для выбора</div>
+        <div class="file-name-label" id="file-name-label"></div>
+    </div>
+
+    <!-- НОВЫЙ Контейнер для опций файла -->
+    <div id="file-options-container">
+        <!-- Опция выбора листа -->
+        <div id="sheet-option" class="file-option tooltip">
+            <label for="sheet-select">Выберите лист:</label>
+            <div class="select-wrapper">
+                <select id="sheet-select">
+                    <option value="">Загрузка списка листов...</option>
+                </select>
+            </div>
+            <span class="tooltiptext">Выберите лист, куда будут загружены данные</span>
+        </div>
+        <!-- Опция строки заголовков (видна всегда после загрузки) -->
+        <div id="header-row-option" class="file-option" style="display: none;" data-tooltip="Укажите номер строки, в которой находятся заголовки таблицы.
+Например: если заголовки в первой строке, введите 1.">
+            <label for="header-row-input">Строка заголовков:</label>
+            <input type="number" id="header-row-input" value="1" min="1" placeholder="#">
+        </div>
+        <!-- Опция страниц -->
+        <div id="page-range-option" class="file-option" data-tooltip="Укажите номера страниц для извлечения данных.
+Формат: 1, 3-5 (отдельные страницы через запятую, диапазоны через дефис).">
+            <label for="page-range-input">Страница(ы):</label>
+            <input type="text" id="page-range-input" placeholder="1, 3-5">
+        </div>
+    </div>
+
+    <!-- Загрузка/Удаление шаблонов -->
+    <div class="input-group">
+        <div class="template-controls">
+            <select id="template-select" class="custom-select" data-tooltip="Выберите сохраненный шаблон настроек для быстрого применения.
+Шаблоны содержат настройки выбора столбцов и другие параметры.">
+                <option value="">Выберите шаблон</option>
+            </select>
+            <button onclick="deleteTemplate()" class="custom-button template-button" data-tooltip="Удаляет выбранный шаблон настроек.
+Внимание: действие нельзя отменить!">Удалить</button>
+        </div>
+    </div>
+
+    <div class="advanced-settings-container">
+        <button onclick="toggleAdvancedSettings()" id="advanced-settings-toggle" class="custom-button">Расширенные настройки</button>
+    </div>
+
+   <div id="advanced-settings">
+      <button id="toggle-headers-button" onclick="toggleHeaders()">Скрыть столбцы</button>
+      <div id="collapsible-headers" class="collapsible expanded">
+          <label>Выберите столбцы для извлечения:</label>
+          <div id="target-headers-list"></div>
+          <button onclick="uncheckAllHeaders()" class="custom-button clear-file-button">Снять все галочки</button>
+      </div>
+      <div class="input-group">
+        <label for="ai-instructions">Дополнительные инструкции для AI (необязательно):</label>
+        <textarea id="ai-instructions" placeholder="Например: извлеки только номер заказа, без слова 'Сделка'"></textarea>
+      </div>
+      <div id="template-container">
+       <input type="text" id="template-name-input" placeholder="Имя нового шаблона">
+        <button onclick="saveTemplate()" class="custom-button template-button">Сохранить</button>
+      </div>
+   </div>
+
+  <div class="button-container">
+    <button onclick="extractData()" id="extract-button" class="custom-button" disabled data-tooltip="Начинает процесс извлечения данных из загруженного файла.
+Убедитесь, что все настройки корректны перед нажатием.">Извлечь данные</button>
+    <button onclick="clearFile()" id="clear-button" class="custom-button clear-file-button" disabled data-tooltip="Очищает загруженный файл и сбрасывает настройки.
+При этом сохраненные шаблоны остаются доступными.">Очистить</button>
+    <button onclick="resetSettings()" id="reset-button" class="custom-button reset-button" data-tooltip="Сбрасывает все настройки в начальное состояние.
+Включая сохраненные шаблоны.
+Внимание: действие нельзя отменить!">Сбросить настройки</button>
+ </div>
+
+ <div class="progress-indicator">
+     <span class="spinner"></span>  Ждите...
+ </div>
+ <div id="status-message" class="message"></div>
+</div>
+
+<div class="tooltip-container" id="tooltip-container"></div>
+
+<script>
+    let currentFile = null;
+    let sheetNames = [];
+    let targetHeaders = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeUI();
+      populateTemplateSelect();
+      document.getElementById('header-row-input').addEventListener('input', () => {
+          loadTargetHeaders(false);
+          saveSettingsToSession();
+      });
+      loadSettingsFromSession();
+      // Селектор исправлен, чтобы выбирать все нужные элементы
+      document.querySelectorAll('.header-checkbox, #header-row-input, #ai-instructions, #page-range-input, #sheet-select').forEach(element => {
+        element.addEventListener('change', saveSettingsToSession);
+      });
+
+      // Добавляем обработчик для автоматической загрузки шаблона
+      document.getElementById('template-select').addEventListener('change', function() {
+          if (this.value) {
+              loadTemplate();
+          }
+      });
+
+      // Инициализация всплывающих подсказок из shared.js
+      setupTooltips();
+    });
+
+    function initializeUI(){
+        document.getElementById('header-row-input').value = '1';
+        document.getElementById('ai-instructions').value = '';
+        document.getElementById('page-range-input').value = '';
+        document.getElementById('target-headers-list').innerHTML = '';
+        targetHeaders = [];
+        const headersContainer = document.getElementById('collapsible-headers');
+        if (headersContainer) {
+            headersContainer.classList.remove('expanded');
+            const toggleButton = document.getElementById('toggle-headers-button');
+            if (toggleButton) {
+                 toggleButton.textContent = 'Показать столбцы';
+            }
+        }
+        document.getElementById('sheet-option').style.display = 'none'; // Используем ID
+        document.getElementById('header-row-option').style.display = 'none'; // Скрываем и строку заголовков
+        document.getElementById('page-range-option').style.display = 'none'; // Используем ID
+        document.getElementById('file-name-label').textContent = '';
+        document.getElementById('extract-button').disabled = true;
+        document.getElementById('clear-button').disabled = true;
+        document.getElementById('advanced-settings').classList.remove('hidden');
+        document.getElementById('template-name-input').value = ''; // Очищаем имя шаблона
+        document.getElementById('template-select').value = ''; // Сбрасываем выбор шаблона
+    }
+
+    document.getElementById('file-input').addEventListener('change', handleFileSelect);
+    const dropArea = document.getElementById('drop-area');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+   ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.add('drag-over'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.remove('drag-over'), false);
+     });
+     dropArea.addEventListener('drop', handleDrop, false);
+     dropArea.addEventListener('click', () => {
+     document.getElementById('file-input').click();
+    });
+
+  function handleDrop(e) {
+    let dt = e.dataTransfer;
+    let files = dt.files;
+    if (files.length > 1) {
+      showMessage('Пожалуйста, загрузите только один файл.', 'error');
+      return;
+    }
+    const file = files[0]
+    if (!isValidFileType(file)) {
+          showMessage(`Неподдерживаемый тип файла: ${file.name}`, 'error');
+          return;
+      }
+    if (!isValidFileSize(file)) {
+      showMessage(`Файл ${file.name} слишком большой (макс. 10MB)`, 'error');
+      return;
+   }
+    currentFile = file;
+    document.getElementById('file-name-label').textContent = `Выбран файл: ${currentFile.name}`;
+    document.getElementById('extract-button').disabled = true;
+    document.getElementById('clear-button').disabled = false;
+    processFile(currentFile);
+  }
+
+  function isValidFileType(file) {
+     const supportedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel',                                           // .xls
+      'text/csv',                                                          // .csv
+      'text/plain',                                                        // .txt
+      'application/vnd.oasis.opendocument.spreadsheet',                     // .ods
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', //docx
+      'application/msword'  //  .doc !!!
+    ];
+    const extension = file.name.split('.').pop().toLowerCase();
+    const allowedExtensions = ['xlsx', 'xls', 'csv', 'txt', 'ods', 'docx', 'doc'];
+    return supportedTypes.includes(file.type) || allowedExtensions.includes(extension);
+  }
+
+  function isValidFileSize(file) {
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    return file.size <= MAX_FILE_SIZE;
+   }
+
+  async function handleFileSelect(event) {
+      const files = event.target.files || event.dataTransfer.files;
+        if (files.length > 1) {
+           showMessage('Пожалуйста, выберите только один файл', 'error');
+           return;
+        }
+       const file = files[0];
+
+       if (!isValidFileType(file)) {
+          showMessage(`Неподдерживаемый тип файла: ${file.name}`, 'error');
+          return;
+        }
+       if (!isValidFileSize(file)) {
+        showMessage(`Файл ${file.name} слишком большой (макс. 10MB)`, 'error');
+          return;
+        }
+
+       currentFile = file;
+       document.getElementById('file-name-label').textContent = `Выбран файл: ${currentFile.name}`;
+       document.getElementById('extract-button').disabled = true;
+       document.getElementById('clear-button').disabled = false;
+
+       processFile(currentFile);
+ }
+
+  async function processFile(file) {
+    setLoading(true);
+    clearMessages();
+    
+    try {
+        const base64Data = await readFileAsDataURL(file);
+        const fileData = {
+            name: file.name,
+            type: file.type,
+            data: base64Data,
+        };
+        
+        // Используем новый двухэтапный метод загрузки
+        const uploadResult = await new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(reject)
+                .processFileAndAnalyze(fileData);
+        });
+
+        if (!uploadResult.success) {
+            throw new Error(uploadResult.error || "Неизвестная ошибка при обработке файла");
+        }
+        
+        // Сохраняем ID файла для последующего анализа
+        currentFile.fileDataId = uploadResult.fileDataId;
+        
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        const isTextFile = ['doc', 'docx', 'txt'].includes(fileExtension);
+        const isTableFile = ['xlsx', 'xls', 'ods', 'csv'].includes(fileExtension);
+        
+        updateUIForFileType(file.name);
+        
+        // Для табличных файлов получаем имена листов из сервера
+        if (isTableFile) {
+            const sheetInfo = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler(resolve)
+                    .withFailureHandler(reject)
+                    .processUploadedFile(fileData);
+            });
+            
+            if (sheetInfo.error) {
+                showMessage(sheetInfo.error, 'error');
+                setLoading(false);
+                return;
+            }
+            
+            sheetNames = sheetInfo.sheetNames;
+            if (sheetNames && sheetNames.length > 0) {
+                populateSheetSelect(sheetNames);
+                document.getElementById('sheet-option').style.display = 'flex';
+            }
+        }
+        
+        document.getElementById('extract-button').disabled = false;
+        showMessage(uploadResult.message || 'Файл обработан. Можно извлекать данные.', 'success');
+        
+        await loadTargetHeaders(false);
+        
+    } catch (error) {
+        showMessage(error.message || "Ошибка при обработке файла", 'error');
+    } finally {
+        setLoading(false);
+    }
+  }
+
+    function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+            reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function populateSheetSelect(names) {
+        const select = document.getElementById('sheet-select');
+        select.innerHTML = '';
+         if (names && names.length > 0) {
+            names.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+               select.appendChild(option);
+            });
+        }
+    }
+
+   async function extractData() {
+    if (!currentFile || !currentFile.fileDataId) {
+        showMessage('Пожалуйста, выберите файл.', 'error');
+        return;
+    }
+
+    const selectedSheetName = document.getElementById('sheet-option').style.display !== 'none'
+                             ? document.getElementById('sheet-select').value
+                             : null;
+    const headerRow = parseInt(document.getElementById('header-row-input').value, 10);
+
+    if (isNaN(headerRow) || headerRow < 1) {
+        showMessage('Укажите корректный номер строки с заголовками.', 'error');
+        return;
+    }
+
+    const selectedHeaders = getSelectedHeaders();
+    const aiInstructions = document.getElementById('ai-instructions').value.trim();
+    const pageRange = document.getElementById('page-range-option').style.display !== 'none'
+                     ? document.getElementById('page-range-input').value.trim()
+                     : null;
+
+    saveSettingsToSession();
+
+    setLoading(true);
+    clearMessages();
+
+    try {
+        // Используем второй этап - анализ данных по ID из кэша
+        const result = await new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(reject)
+                .analyzeDataById(
+                    currentFile.fileDataId,
+                    headerRow,
+                    selectedHeaders,
+                    aiInstructions,
+                    pageRange
+                );
+        });
+
+        if (!result.success) {
+            throw new Error(result.error || "Неизвестная ошибка при анализе данных");
+        }
+
+        showMessage(result.message || "Данные успешно извлечены и вставлены.", 'success');
+        
+    } catch (error) {
+        showMessage(error.message || error || "Ошибка при обработке данных", 'error');
+    } finally {
+        setLoading(false);
+    }
+   }
+
+   function clearFile() {
+      currentFile = null;
+       document.getElementById('file-input').value = '';
+       document.getElementById('file-name-label').textContent = '';
+       document.getElementById('sheet-option').style.display = 'none'; // Скрываем
+       document.getElementById('sheet-select').innerHTML = '';
+       document.getElementById('header-row-option').style.display = 'none'; // Скрываем
+       document.getElementById('page-range-option').style.display = 'none'; // Скрываем
+       document.getElementById('extract-button').disabled = true;
+       document.getElementById('clear-button').disabled = true;
+      clearMessages();
+       // Не сбрасываем настройки сессии (headerRow, инструкции, страницы, чекбоксы)
+    }
+
+   function setLoading(isLoading) {
+     const extractButton = document.getElementById('extract-button');
+     const clearButton = document.getElementById('clear-button');
+      const fileInput = document.getElementById('file-input');
+      const progressIndicator = document.querySelector('.progress-indicator');
+      const resetButton = document.getElementById('reset-button');
+
+       extractButton.disabled = isLoading;
+       clearButton.disabled = isLoading;
+       fileInput.disabled = isLoading;
+       resetButton.disabled = isLoading;
+
+      if (progressIndicator) {
+        progressIndicator.style.display = isLoading ? 'block' : 'none';
+     }
+   }
+
+   function showMessage(message, type = 'status') {
+      const statusEl = document.getElementById('status-message');
+       statusEl.textContent = message;
+      statusEl.className = 'message ' + type + ' visible';
+   }
+
+   function clearMessages() {
+      const statusEl = document.getElementById('status-message');
+       statusEl.className = 'message';
+       statusEl.textContent = '';
+   }
+
+   function toggleAdvancedSettings(forceShow) {
+      const advancedSettings = document.getElementById('advanced-settings');
+      const toggleButton = document.getElementById('advanced-settings-toggle');
+      const show = forceShow !== undefined ? forceShow : !advancedSettings.classList.contains('expanded');
+
+     if (show) {
+        advancedSettings.classList.add('expanded');
+        toggleButton.textContent = 'Скрыть доп. настройки';
+     } else {
+      advancedSettings.classList.remove('expanded');
+      toggleButton.textContent = 'Расширенные настройки';
+      }
+   }
+
+  async function loadTargetHeaders(resetCheckboxes = true) {
+      const headerRow = parseInt(document.getElementById('header-row-input').value, 10);
+
+      if (isNaN(headerRow) || headerRow < 1) {
+        document.getElementById('target-headers-list').innerHTML = '';
+        targetHeaders = [];
+        return;
+      }
+
+      try {
+        targetHeaders = await new Promise((resolve, reject) => {
+             google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getTargetHeadersFromServer(headerRow);
+              });
+
+          renderTargetHeaders(resetCheckboxes);
+
+      } catch (error) {
+         showMessage('Ошибка при загрузке заголовков целевого листа: ' + error.message, 'error');
+         document.getElementById('target-headers-list').innerHTML = '';
+         targetHeaders = [];
+       }
+  }
+
+ function renderTargetHeaders(resetCheckboxes = true) {
+    const container = document.getElementById('target-headers-list');
+    container.innerHTML = '';
+
+    const sessionHeaders = sessionStorage.getItem('selectedHeaders');
+    const selectedHeadersFromSession = sessionHeaders ? JSON.parse(sessionHeaders) : null;
+
+    targetHeaders.forEach(header => {
+      if (header.trim() === "") return;
+
+       const label = document.createElement('label');
+       label.className = 'header-checkbox-label';
+
+       const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+       checkbox.className = 'header-checkbox';
+       checkbox.value = header;
+       checkbox.addEventListener('change', saveSettingsToSession);
+
+       if (!resetCheckboxes && selectedHeadersFromSession) {
+          checkbox.checked = selectedHeadersFromSession.includes(header);
+       } else {
+         checkbox.checked = true;
+       }
+
+       label.appendChild(checkbox);
+       label.appendChild(document.createTextNode(header));
+       container.appendChild(label);
+     });
+ }
+
+  function getSelectedHeaders() {
+    const checkboxes = document.querySelectorAll('.header-checkbox:checked');
+    return Array.from(checkboxes).map(checkbox => checkbox.value);
+  }
+
+  function uncheckAllHeaders() {
+     const checkboxes = document.querySelectorAll('.header-checkbox');
+      checkboxes.forEach(checkbox => checkbox.checked = false);
+      saveSettingsToSession();
+   }
+
+  function resetSettings() {
+    if (!confirm('Вы уверены, что хотите сбросить все настройки (включая шаблоны)?')) {
+       return;
+     }
+     localStorage.clear();
+     sessionStorage.clear();
+     initializeUI(); // Сброс UI
+     populateTemplateSelect(); // Обновляем пустой список шаблонов
+     clearFile(); // Очищаем информацию о файле
+     showMessage('Настройки сброшены.', 'success');
+  }
+
+   function saveSettingsToSession() {
+       const selectedHeaders = getSelectedHeaders();
+       sessionStorage.setItem('selectedHeaders', JSON.stringify(selectedHeaders));
+       sessionStorage.setItem('headerRow', document.getElementById('header-row-input').value);
+       sessionStorage.setItem('aiInstructions', document.getElementById('ai-instructions').value);
+       sessionStorage.setItem('pageRange', document.getElementById('page-range-input').value);
+   }
+
+    function loadSettingsFromSession() {
+        const sessionHeaderRow = sessionStorage.getItem('headerRow');
+        if (sessionHeaderRow) {
+            document.getElementById('header-row-input').value = sessionHeaderRow;
+        }
+        const sessionInstructions = sessionStorage.getItem('aiInstructions');
+        if (sessionInstructions) {
+            document.getElementById('ai-instructions').value = sessionInstructions;
+        }
+        const sessionPageRange = sessionStorage.getItem('pageRange');
+        if (sessionPageRange) {
+            document.getElementById('page-range-input').value = sessionPageRange;
+        }
+        // Убираем авто-вызов загрузки заголовков
+        // if (sessionHeaderRow) {
+        //     loadTargetHeaders(false);
+        // }
+    }
+
+  function saveTemplate() {
+    const templateName = document.getElementById('template-name-input').value.trim();
+    const templateSelect = document.getElementById('template-select');
+    const currentTemplate = templateSelect.value;
+
+    // Если имя не указано, но есть выбранный шаблон - сохраняем в него
+    if (!templateName && currentTemplate) {
+        const templateKey = `template_${currentTemplate}`;
+        const templateData = {
+            selectedHeaders: getSelectedHeaders(),
+            headerRow: document.getElementById('header-row-input').value,
+            aiInstructions: document.getElementById('ai-instructions').value,
+            pageRange: document.getElementById('page-range-input').value
+        };
+        localStorage.setItem(templateKey, JSON.stringify(templateData));
+        document.getElementById('template-name-input').value = '';
+        showMessage(`Изменения сохранены в шаблон "${currentTemplate}".`, 'success');
+        return;
+    }
+
+    // Если имя указано - создаем новый шаблон
+    if (!templateName) {
+        showMessage('Введите имя шаблона или выберите существующий для сохранения изменений.', 'error');
+        return;
+    }
+
+    const templateKey = `template_${templateName}`;
+    const templateData = {
+        selectedHeaders: getSelectedHeaders(),
+        headerRow: document.getElementById('header-row-input').value,
+        aiInstructions: document.getElementById('ai-instructions').value,
+        pageRange: document.getElementById('page-range-input').value
+    };
+    localStorage.setItem(templateKey, JSON.stringify(templateData));
+    document.getElementById('template-name-input').value = '';
+    populateTemplateSelect();
+    document.getElementById('template-select').value = templateName;
+    showMessage(`Шаблон "${templateName}" сохранен.`, 'success');
+  }
+
+  function loadTemplate() {
+    const templateSelect = document.getElementById('template-select');
+    const templateName = templateSelect.value;
+    if (!templateName) {
+        showMessage('Выберите шаблон для загрузки.', 'info');
+        return;
+    }
+    const templateKey = `template_${templateName}`;
+    const templateData = JSON.parse(localStorage.getItem(templateKey));
+
+    if (templateData) {
+        document.getElementById('header-row-input').value = templateData.headerRow;
+        document.getElementById('ai-instructions').value = templateData.aiInstructions;
+        document.getElementById('page-range-input').value = templateData.pageRange;
+
+        loadTargetHeaders().then(() => { // Загружаем заголовки и ПОТОМ устанавливаем чекбоксы
+            if (templateData.selectedHeaders) {
+                const checkboxes = document.querySelectorAll('.header-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = templateData.selectedHeaders.includes(checkbox.value);
+                });
+            }
+            saveSettingsToSession(); // Сохраняем загруженные настройки в сессию
+        });
+
+        showMessage(`Шаблон "${templateName}" загружен.`, 'success');
+        const headersContainer = document.getElementById('collapsible-headers');
+        if(headersContainer){
+            headersContainer.classList.add('expanded'); // Раскрываем список столбцов
+            const toggleButton = document.getElementById('toggle-headers-button');
+            if(toggleButton) toggleButton.textContent = 'Скрыть столбцы';
+        }
+
+    } else {
+        showMessage(`Шаблон "${templateName}" не найден.`, 'error');
+    }
+  }
+
+  function deleteTemplate() {
+      const templateSelect = document.getElementById('template-select');
+     const templateName = templateSelect.value;
+
+    if (!templateName) {
+       showMessage('Выберите шаблон для удаления.', 'error');
+      return;
+     }
+
+    if (!confirm(`Вы уверены, что хотите удалить шаблон "${templateName}"?`)) {
+      return;
+     }
+
+    const templateKey = `template_${templateName}`;
+    localStorage.removeItem(templateKey);
+    populateTemplateSelect();
+    showMessage(`Шаблон "${templateName}" удален.`, 'success');
+  }
+
+function populateTemplateSelect() {
+   const templateSelect = document.getElementById('template-select');
+   const currentSelection = templateSelect.value;
+   templateSelect.innerHTML = '<option value="">Выберите шаблон</option>';
+
+    let templatesExist = false;
+    // Собираем имена шаблонов в массив и сортируем
+    const templateNames = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+       if (key.startsWith('template_')) {
+           templateNames.push(key.substring('template_'.length));
+        }
+     }
+     templateNames.sort(); // Сортируем по имени
+
+     // Создаем опции из отсортированного массива
+     templateNames.forEach(templateName => {
+         templatesExist = true;
+         const option = document.createElement('option');
+         option.value = templateName;
+         option.textContent = templateName;
+         templateSelect.appendChild(option);
+     });
+
+
+     if (templatesExist && localStorage.getItem(`template_${currentSelection}`)) {
+         templateSelect.value = currentSelection;
+     } else if(templatesExist && templateSelect.options.length > 1) {
+       // Если предыдущий выбор удален, но есть другие шаблоны, выбираем первый
+       // templateSelect.selectedIndex = 1; // Раскомментировать, если нужно выбирать первый после удаления
+     } else {
+       templateSelect.value = ""; // Если шаблонов нет или выбранный удален
+     }
+ }
+
+   function updateUIForFileType(fileName) {
+     const fileExtension = fileName.split('.').pop().toLowerCase();
+     const isTextFile = ['doc', 'docx', 'txt'].includes(fileExtension);
+     const isTableFile = ['xlsx', 'xls', 'ods', 'csv'].includes(fileExtension);
+
+      const sheetOption = document.getElementById('sheet-option');
+      const headerRowOption = document.getElementById('header-row-option');
+      const pageRangeOption = document.getElementById('page-range-option');
+
+      // Всегда показываем строку заголовков после загрузки файла
+      if (headerRowOption) headerRowOption.style.display = 'flex';
+
+      if (isTableFile) {
+         if (sheetOption) sheetOption.style.display = 'flex';
+         if (pageRangeOption) pageRangeOption.style.display = 'none';
+      } else if (isTextFile) {
+         if (sheetOption) sheetOption.style.display = 'none';
+         if (pageRangeOption) pageRangeOption.style.display = 'flex';
+      } else {
+         if (sheetOption) sheetOption.style.display = 'none';
+         if (pageRangeOption) pageRangeOption.style.display = 'none';
+         if (headerRowOption) headerRowOption.style.display = 'none'; // Скрываем и строку, если тип неизвестен
+      }
+
+      // Сворачиваем заголовки при загрузке нового файла
+      const headersContainer = document.getElementById('collapsible-headers');
+      if(headersContainer) {
+          headersContainer.classList.remove('expanded');
+          const toggleButton = document.getElementById('toggle-headers-button');
+          if(toggleButton) {
+            toggleButton.textContent = 'Показать столбцы';
+          }
+      }
+   }
+
+   function toggleHeaders() {
+       const headersContainer = document.getElementById('collapsible-headers');
+       const button = document.getElementById('toggle-headers-button');
+       const isExpanded = headersContainer.classList.toggle('expanded');
+       button.textContent = isExpanded ? 'Скрыть столбцы' : 'Показать столбцы';
+   }
+
+  // Оптимизированная функция генерации ключа кэша
+  function generateCacheKey(fileData) {
+    const fileInfo = {
+      name: fileData.name,
+      type: fileData.type,
+      size: fileData.size,
+      lastModified: fileData.lastModified
+    };
+    return JSON.stringify(fileInfo);
+  }
+
+  // Оптимизированная функция определения кодировки
+  function detectEncoding(blob) {
+    const bytes = blob.getBytes();
+    // Проверяем только первые 4096 байт для скорости
+    const sampleSize = Math.min(4096, bytes.length);
+    const sample = bytes.slice(0, sampleSize);
+    
+    // Проверяем BOM маркеры
+    if (sample[0] === 0xEF && sample[1] === 0xBB && sample[2] === 0xBF) {
+      return 'UTF-8';
+    }
+    
+    // Проверяем только основные кодировки
+    const encodings = ['UTF-8', 'Windows-1251', 'ISO-8859-5'];
+    for (const encoding of encodings) {
+      try {
+        const text = Utilities.newBlob(sample).getDataAsString(encoding);
+        if (isValidText(text)) {
+          return encoding;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    return 'UTF-8';
+  }
+
+  // Оптимизированная функция валидации текста
+  function isValidText(text) {
+    // Проверяем только первые 1000 символов
+    const sample = text.slice(0, 1000);
+    
+    // Проверяем наличие нечитаемых символов
+    const invalidChars = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/;
+    if (invalidChars.test(sample)) {
+      return false;
+    }
+    
+    // Проверяем наличие кириллицы
+    const hasCyrillic = /[А-Яа-яЁё]/.test(sample);
+    if (!hasCyrillic) {
+      return false;
+    }
+    
+    return true;
+  }
+
+</script>
+<script src="shared.js"></script>
+</body>
+</html>
