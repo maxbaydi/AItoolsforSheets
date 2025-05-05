@@ -401,6 +401,12 @@
             <span class="tooltiptext">Включить примеры в запрос для более точного результата</span>
         </div>
 
+        <div class="checkbox-label tooltip">
+            <label for="includeFormatting">Включить форматирование таблицы:</label>
+            <input type="checkbox" id="includeFormatting" checked>
+            <span class="tooltiptext">Добавить инструкции форматирования (цвета, жирный шрифт, границы), которые будут автоматически применены к таблице</span>
+        </div>
+
         <div class="button-group">
             <button onclick="createTableFromQuery()" id="createButton" class="custom-button tooltip">
                 Создать таблицу
@@ -491,6 +497,7 @@
             const tableStyle = document.getElementById('tableStyle').value;
             const keywords = document.getElementById('keywords').value.trim();
             const includeExamples = document.getElementById('includeExamples').checked;
+            const includeFormatting = document.getElementById('includeFormatting').checked;
 
             if (!validateQuery(query)) return;
 
@@ -502,8 +509,7 @@
                     google.script.run
                         .withSuccessHandler(resolve)
                         .withFailureHandler(reject)
-                        //  createTable  НИЖЕ!!!!
-                        .createTable(query, tableStyle, keywords, includeExamples); //  аргументы!
+                        .createTable(query, tableStyle, keywords, includeExamples, includeFormatting);
                 });
 
                 UIManager.showMessage(result, 'status');

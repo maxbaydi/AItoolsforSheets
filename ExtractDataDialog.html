@@ -3,7 +3,6 @@
 <head>
     <base target="_top">
     <style>
-        /* ... (все стили остаются без изменений) ... */
         :root {
             --background-color: #f0f4f8;
             --primary-color-1: #ffffff;
@@ -248,63 +247,13 @@
             visibility: visible;
         }
 
-        /* переключатель режимов */
+        /* Удаляем стили для переключателя режимов, которые нам больше не нужны */
         .mode-button-group {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 5px;
-            margin-top: 5px;
+            display: none; /* Скрываем элемент вместо удаления, чтобы сохранить структуру */
         }
 
         .mode-button {
-            padding: 8px 16px;
-            border: 1px solid transparent;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 12px;
-            transition: all 0.2s ease;
-            background-color: var(--primary-color-3);
-            color: var(--button-text-color);
-            box-shadow: var(--button-shadow);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            width: 100%;
-            text-align: center;
-            position: relative;
-        }
-
-        .mode-button:hover:not(:disabled) {
-            box-shadow: var(--button-hover-shadow);
-            transform: translateY(-1px) scale(1.02);
-            background-color: #1e88e5;
-            border-color: var(--primary-color-2);
-        }
-
-        .mode-button:active {
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-            transform: translateY(0) scale(0.98);
-        }
-
-        .mode-button::before {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 10px;
-            transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background-color: var(--primary-color-1);
-            transition: left 0.2s ease;
-        }
-
-        .mode-button.mode-row::before {
-            left: 10px;
-        }
-
-        .mode-button.mode-cols::before {
-            left: calc(100% - 26px);
+            display: none;
         }
 
           input[type="checkbox"] {
@@ -342,23 +291,6 @@
             <span class="tooltiptext">Перечислите заголовки через запятую, например: "Имя, Телефон, Email". Порядок важен!</span>
         </div>
 
-        <div class="input-group tooltip">
-            <label>Режим вставки:</label>
-            <div class="mode-button-group">
-                <button id="modeButton" class="mode-button mode-row tooltip" onclick="toggleInsertMode()">
-                    В одну строку
-                    <span class="tooltiptext">Переключить режим вставки данных (в одну строку / по строкам)</span>
-                </button>
-            </div>
-        </div>
-        <!--<div class="checkbox-label">
-              <input type="checkbox" id="add-labels-checkbox">
-              <label for="add-labels-checkbox">Добавить пояснения:</label>
-         </div>
-         <div class="tooltip">
-              <span class="tooltiptext">Добавлять пояснения к извлечённым данным (например, "Адрес: ...")</span>
-         </div>-->
-
         <button onclick="extractDataFromDialog()" id="extractButton" class="custom-button tooltip">
             Извлечь данные
             <span class="tooltiptext">Начать процесс извлечения данных из указанного диапазона</span>
@@ -370,12 +302,8 @@
           <div id="status-message" class ="message success"></div>
         </div>
 <script>
-    let insertMode = 'row'; // Режим вставки по умолчанию - строка
-    const modeButton = document.getElementById('modeButton');
-
     // Инициализация тултипов и загрузка настроек при старте
     document.addEventListener('DOMContentLoaded', () => {
-        setInsertMode(insertMode);
         setupTooltips();
         // Загрузка температуры из настроек
         google.script.run.withSuccessHandler(temp => {
@@ -399,14 +327,6 @@
             el.classList.remove('visible');
         }
     }
-
-    function toggleInsertMode() {
-        insertMode = insertMode === 'row' ? 'cols' : 'row';
-        modeButton.classList.toggle('mode-row', insertMode === 'row');
-        modeButton.classList.toggle('mode-cols', insertMode === 'cols');
-        modeButton.textContent = insertMode === 'row' ? 'В одну строку' : 'По строкам';
-    }
-
 
 async function extractDataFromDialog() {
     const sourceRangeElement = document.getElementById('sourceRange');
@@ -467,7 +387,7 @@ async function extractDataFromDialog() {
                 }
                 extractButton.disabled = false;
             })
-            .extractData(finalSourceRange, headers, 'csv', insertMode); //  'csv'
+            .extractData(finalSourceRange, headers, 'csv', 'row'); // Всегда используем 'row' как параметр, который больше не используется
     } catch (error) {
         showMessage(error.message, 'error');
          if (progressIndicator) {

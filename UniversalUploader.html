@@ -984,15 +984,16 @@
         
         updateUIForFileType(file.name);
         
-        // Для табличных файлов получаем имена листов из сервера
+        // Для табличных файлов получаем имена листов из кэша, а не выполняем повторную конвертацию
         if (isTableFile) {
             const sheetInfo = await new Promise((resolve, reject) => {
                 google.script.run
                     .withSuccessHandler(resolve)
                     .withFailureHandler(reject)
-                    .processUploadedFile(fileData);
+                    .getSheetNamesById(currentFile.fileDataId);
             });
             
+            // Проверяем, вернулся ли результат
             if (sheetInfo.error) {
                 showMessage(sheetInfo.error, 'error');
                 setLoading(false);

@@ -1,0 +1,60 @@
+/**
+ * Получает текущие настройки для отображения в UI.
+ */
+function getUiSettings() {
+  try {
+    const settings = getSettings(); // Эта функция теперь возвращает и enableHints, freeModels
+    const models = getModelsListFromClient(); // Получаем список моделей
+    return {
+      apiKey: settings.apiKey,
+      selectedModel: settings.model,
+      temperature: settings.temperature,
+      maxTokens: settings.maxTokens,
+      retryAttempts: settings.retryAttempts,
+      enableHints: settings.enableHints, // <-- Передаем в UI
+      freeModels: settings.freeModels,   // <-- Передаем в UI
+      availableModels: models // Передаем список моделей в UI
+    };
+  } catch (e) {
+    logMessage(`Ошибка в getUiSettings: ${e}`, true);
+    // Возвращаем дефолтные значения в случае ошибки, чтобы UI мог загрузиться
+    return {
+      apiKey: '',
+      selectedModel: '',
+      temperature: 0.7,
+      maxTokens: 1000,
+      retryAttempts: 3,
+      enableHints: false, // <-- Дефолтное значение
+      freeModels: false,  // <-- Дефолтное значение
+      availableModels: { free: [], paid: [] }, // Пустой список моделей
+      error: e.toString() // Добавляем сообщение об ошибке
+    };
+  }
+}
+
+/**
+ * Сохраняет настройки, полученные из UI.
+ * @param {object} settings Объект с настройками из UI { apiKey, model, temperature, maxTokens, retryAttempts, enableHints, freeModels }.
+ */
+function saveUiSettings(settings) {
+  try {
+    if (!settings) {
+      throw new Error("Объект настроек не передан в saveUiSettings.");
+    }
+    logMessage(`Сохранение настроек из UI: ${JSON.stringify(settings)}`);
+    // Передаем все значения, включая новые boolean
+    saveSettings(
+      settings.apiKey,
+      settings.model,
+      parseFloat(settings.temperature),
+      parseInt(settings.maxTokens, 10),
+      parseInt(settings.retryAttempts, 10),
+      settings.enableHints, // <-- Передаем новое значение
+      settings.freeModels   // <-- Передаем новое значение
+    );
+    return { success: true };
+  } catch (e) {
+    logMessage(`Ошибка в saveUiSettings: ${e}`, true);
+    return { success: false, error: e.toString() };
+  }
+}

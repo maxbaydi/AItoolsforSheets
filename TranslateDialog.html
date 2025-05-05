@@ -304,12 +304,55 @@
            /*  стили, если нужно */
        }
 
-       /* Стили для выпадающего списка */
-        #modelSelect {
-            width: 100%; /* Полная ширина */
+       /* Стили для всплывающих подсказок */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 100%;
+            background-color: rgba(51, 51, 51, 0.9);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+        }
+        
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: rgba(51, 51, 51, 0.9) transparent transparent transparent;
+        }
+        
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Стили для выпадающих списков (унифицированные) */
+        select {
+            width: 100%;
             padding: 8px;
             box-sizing: border-box;
-            margin-bottom: 10px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             background-color: var(--input-bg);
@@ -317,148 +360,81 @@
             font-family: inherit;
             font-size: 14px;
             box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
-            appearance: none; /* Убираем стандартную стрелку */
+            appearance: none;
             cursor: pointer;
             transition: all 0.2s ease;
         }
-
-        #modelSelect:focus {
+        
+        select:focus {
             outline: none;
             border-color: var(--primary-color-3);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
-          /* Добавляем кастомную стрелку */
+        
+        /* Стиль для обертки выпадающих списков */
         .select-wrapper {
-              position: relative;
-              display: inline-block;
-              width: 100%;
-        }
-        .select-wrapper::after {
-              content: '▼';
-              position: absolute;
-              top: 50%;
-              right: 10px;
-              transform: translateY(-50%);
-              color: var(--text-color-sub);
-              pointer-events: none; /*  не кликабельно */
-              font-size: 0.8em;
-        }
-      /*  */
-      .quick-select {
-            margin-top: 5px; /*  отступ */
-            display: none;    /*  flex */
-            /*flex-wrap: wrap;   перенос */
-            gap: 5px;      /*  промежутки */
-        }
-
-        .language-chip {
-             padding: 5px;      /*  отступы */
-             background-color: var(--primary-color-1); /* Фон */
-             border-radius: 4px;
-             text-align: center;
-             cursor: pointer;
-             transition: all 0.2s ease;
-             color: var(--text-color-headline); /* Цвет текста */
-             border: 1px solid var(--border-color); /* Рамка */
-             font-size: 12px; /* Размер шрифта */
-         }
-
-         .language-chip:hover {
-             background-color: rgba(0, 0, 0, 0.05);
-             color: var(--text-color);
-             border-color: var(--primary-color-3);
-         }
-        /* Стили для кнопок выбора языка */
-       .lang-button {
-            /*  общие стили от .custom-button вручную не применяются, используйте оба класса */
-            width: 22px;  /*  ширина */
-            height: 20px; /*  высота */
-            padding: 0;   /*  отступы */
-            font-size: 10px; /*  размер, можно еще уменьшить */
-            border-radius: 4px; /*  НЕ круглые */
-            margin: 0 2px;      /*  отступы */
-            line-height: 1;
-       }
-        /*  контейнер для кнопок */
-        #langButtonsContainer {
-           margin-top: 5px;
-           margin-bottom: 20px;
-           display: flex;
-           flex-wrap: nowrap; /*  перенос */
-           gap: 2px;
-           justify-content: flex-start;/*выровнял по левому краю*/
-
-        }
-
-        .tooltip-container {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-color: #333333;
-            color: #FFD700;
-            padding: 8px 12px;
-            border-radius: 0 0 8px 8px;
-            font-size: 12px;
-            white-space: pre-line;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
-            z-index: 1000;
+            position: relative;
+            display: inline-block;
             width: 100%;
-            text-align: left;
-            pointer-events: none;
-            line-height: 1.2;
-            box-sizing: border-box;
         }
-
-        .tooltip-container.visible {
-            opacity: 1;
-            visibility: visible;
+        
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            color: var(--text-color-sub);
+            pointer-events: none;
+            font-size: 0.8em;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="input-group tooltip">
+        <div class="input-group">
             <label for="language">Введите название языка:</label>
             <input type="text" id="language" placeholder="Например: Немецкий" autocomplete="off">
-            <span class="tooltiptext">Введите название языка, на который нужно перевести текст</span>
-            <div id="langButtonsContainer">
-                <button class="custom-button lang-button tooltip" onclick="selectLanguage('Английский')">
-                    EN
-                    <span class="tooltiptext">Перевести на английский</span>
-                </button>
-                <button class="custom-button lang-button tooltip" onclick="selectLanguage('Русский')">
-                    RU
-                    <span class="tooltiptext">Перевести на русский</span>
-                </button>
-                <button class="custom-button lang-button tooltip" onclick="selectLanguage('Китайский')">
-                    CH
-                    <span class="tooltiptext">Перевести на китайский</span>
-                </button>
+            <div class="select-wrapper">
+                <select id="commonLanguages" onchange="selectFromDropdown()">
+                    <option value="" selected disabled>Популярные языки</option>
+                    <option value="Английский">Английский</option>
+                    <option value="Русский">Русский</option>
+                    <option value="Китайский">Китайский</option>
+                    <option value="Испанский">Испанский</option>
+                    <option value="Французский">Французский</option>
+                    <option value="Немецкий">Немецкий</option>
+                </select>
             </div>
         </div>
-      <div class="input-group tooltip">
+        <div class="input-group">
             <label for="temperature" class="top-label">Температура (0-1):</label>
             <div class="input-group input-group-row">
                 <input type="number" id="temperature" step="0.01" min="0" max="1" placeholder="0.1">
-                <button onclick="resetTemperature('temperature')" class="custom-button delete-button tooltip">
+                <button onclick="resetTemperature('temperature')" class="custom-button delete-button">
                     Сброс
-                    <span class="tooltiptext">Сбросить значение температуры</span>
                 </button>
             </div>
-            <span class="tooltiptext">Влияет на креативность перевода. От 0 (более точный) до 1 (более творческий)</span>
+        </div>
+        
+        <div class="input-group">
+            <label for="modelSelect" class="top-label">Модель перевода:</label>
+            <div class="select-wrapper">
+                <select id="modelSelect">
+                    <option value="default">По умолчанию</option>
+                    <option value="google/gemma-3-27b-it:free">Google Gemma 3 27B</option>
+                    <option value="qwen/qwen3-235b-a22b:free">Qwen 3 235B</option>
+                    <option value="google/learnlm-1.5-pro-experimental:free">Google LearnLM 1.5 Pro</option>
+                    <option value="meta-llama/llama-4-maverick:free">Llama 4 Maverick</option>
+                    <option value="mistralai/mistral-7b-instruct:free">Mistral 7B</option>
+                </select>
+            </div>
         </div>
 
-        <!--  Убираем quick-select -->
-        <!-- <div class="quick-select">
-            <div class="language-chip" onclick="selectLanguage('Английский')">Английский</div>
-            <div class="language-chip" onclick="selectLanguage('Немецкий')">Немецкий</div>
-            <div class="language-chip" onclick="selectLanguage('Французский')">Французский</div>
-            <div class="language-chip" onclick="selectLanguage('Испанский')">Испанский</div>
-            <div class="language-chip" onclick="selectLanguage('Китайский')">Китайский</div>
-        </div> -->
+        <div id="recentLanguages" class="input-group" style="display: none;">
+            <label>Недавно использованные:</label>
+            <div id="recentLanguageChips" class="language-chips-container"></div>
+        </div>
 
         <div class="button-group">
             <!--  Убрал кнопку "Отмена" -->
@@ -474,6 +450,54 @@
 
         <div id="error-message" class="message"></div>
         <div id="status-message" class="message"></div>
+
+        <!-- Разделитель -->
+        <div class="separator" style="margin: 20px 0; border-top: 1px solid var(--border-color); position: relative;">
+            <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--background-color); padding: 0 10px; color: var(--text-color-sub); font-size: 12px;">
+                Google Translate
+            </span>
+        </div>
+
+        <!-- Секция Google Translate -->
+        <div class="google-translate-section">
+            <div class="input-group">
+                <label for="sourceLanguage">Язык оригинала:</label>
+                <input type="text" id="sourceLanguageInput" placeholder="Например: Английский" autocomplete="off">
+                <div class="select-wrapper">
+                    <select id="sourceLanguage" onchange="updateSourceLanguageInput()">
+                        <option value="auto" selected>Определить автоматически</option>
+                        <option value="en">Английский</option>
+                        <option value="ru">Русский</option>
+                        <option value="zh-CN">Китайский</option>
+                        <option value="es">Испанский</option>
+                        <option value="fr">Французский</option>
+                        <option value="de">Немецкий</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="targetLanguage">Язык перевода:</label>
+                <input type="text" id="targetLanguageInput" placeholder="Например: Русский" autocomplete="off">
+                <div class="select-wrapper">
+                    <select id="targetLanguage" onchange="updateTargetLanguageInput()">
+                        <option value="en">Английский</option>
+                        <option value="ru" selected>Русский</option>
+                        <option value="zh-CN">Китайский</option>
+                        <option value="es">Испанский</option>
+                        <option value="fr">Французский</option>
+                        <option value="de">Немецкий</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="quickTranslate()" id="quickTranslateButton" class="custom-button tooltip">
+                    Быстрый перевод
+                    <span class="tooltiptext">Перевести с помощью Google Translate</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -516,22 +540,99 @@
             UIManager.clearMessages();
         }
 
+        function selectFromDropdown() {
+            const dropdown = document.getElementById('commonLanguages');
+            const selectedLanguage = dropdown.options[dropdown.selectedIndex].value;
+            selectLanguage(selectedLanguage);
+            // После выбора сбрасываем селект на дефолтный вариант
+            dropdown.selectedIndex = 0;
+        }
+
+        // Добавляем историю недавно использованных языков
+        let recentLanguages = [];
+        
+        // Загрузка последних использованных языков из localStorage
+        function loadRecentLanguages() {
+            const savedLanguages = localStorage.getItem('recentLanguages');
+            if (savedLanguages) {
+                recentLanguages = JSON.parse(savedLanguages);
+                updateRecentLanguagesDisplay();
+            }
+        }
+        
+        function updateRecentLanguagesDisplay() {
+            const container = document.getElementById('recentLanguageChips');
+            container.innerHTML = '';
+            
+            if (recentLanguages.length > 0) {
+                document.getElementById('recentLanguages').style.display = 'block';
+                
+                recentLanguages.slice(0, 5).forEach(lang => {
+                    const chip = document.createElement('div');
+                    chip.className = 'language-chip';
+                    chip.textContent = lang;
+                    chip.onclick = () => selectLanguage(lang);
+                    container.appendChild(chip);
+                });
+            } else {
+                document.getElementById('recentLanguages').style.display = 'none';
+            }
+        }
+        
+        function addToRecentLanguages(language) {
+            // Удаляем язык, если он уже в списке
+            recentLanguages = recentLanguages.filter(lang => lang !== language);
+            
+            // Добавляем в начало списка
+            recentLanguages.unshift(language);
+            
+            // Ограничиваем список до 5 языков
+            if (recentLanguages.length > 5) {
+                recentLanguages = recentLanguages.slice(0, 5);
+            }
+            
+            // Сохраняем в localStorage
+            localStorage.setItem('recentLanguages', JSON.stringify(recentLanguages));
+            
+            // Обновляем отображение
+            updateRecentLanguagesDisplay();
+        }
+
+        // Сохранение модели перевода
+        function saveSelectedModel() {
+            const model = document.getElementById('modelSelect').value;
+            if (model !== 'default') {
+                localStorage.setItem('lastUsedModel', model);
+            }
+        }
+        
+        // Загрузка выбранной модели при загрузке страницы
+        function loadSelectedModel() {
+            const model = localStorage.getItem('lastUsedModel');
+            if (model) {
+                document.getElementById('modelSelect').value = model;
+            }
+        }
+
         async function translateCell() {
             const language = document.getElementById('language').value.trim();
-            let temperature = document.getElementById('temperature').value.trim(); //  из поля
-           if (temperature) {  //  в число
-               temperature = parseFloat(temperature);
-               if (isNaN(temperature) || temperature < 0 || temperature > 1) {
-                   UIManager.showMessage('Неверное значение температуры.  Должно быть число от 0 до 1.', 'error');
+            let temperature = document.getElementById('temperature').value.trim();
+            const modelSelect = document.getElementById('modelSelect');
+            const model = modelSelect.value !== 'default' ? modelSelect.value : null;
+            
+            if (temperature) {
+                temperature = parseFloat(temperature);
+                if (isNaN(temperature) || temperature < 0 || temperature > 1) {
+                    UIManager.showMessage('Неверное значение температуры. Должно быть число от 0 до 1.', 'error');
                     return;
-               }
-           } else {
-                temperature = null;  //  null
-           }
+                }
+            } else {
+                temperature = null;
+            }
 
             if (!validateInput(language)) return;
 
-            isTranslating = true; //  убрал
+            isTranslating = true;
             UIManager.setLoading(true);
             UIManager.clearMessages();
 
@@ -540,19 +641,24 @@
                 if (!range) {
                     throw new Error('Не выбран диапазон для перевода');
                 }
+                
+                // Сохраняем данные в историю и localStorage
+                addToRecentLanguages(language);
+                localStorage.setItem('lastUsedLanguage', language);
+                saveSelectedModel();
+                
                 const result = await new Promise((resolve, reject) => {
                     google.script.run
                         .withSuccessHandler(resolve)
                         .withFailureHandler(reject)
-                        .translateRange(language, range, temperature);  //  температуру!
+                        .translateRangeWithModel(language, range, temperature, model);
                 });
 
-                UIManager.showMessage(result, 'status');  //  result
-                //setTimeout(() => google.script.host.close(), 2000); //  close - лишнее
+                UIManager.showMessage(result, 'status');
             } catch (error) {
                 UIManager.showMessage(error.message || 'Произошла ошибка при переводе', 'error');
             } finally {
-                isTranslating = false; //  убрал
+                isTranslating = false;
                 UIManager.setLoading(false);
             }
         }
@@ -593,6 +699,10 @@
             }
             //  загружаем температуру
             loadInitialTemperature();
+            // Загружаем недавно использованные языки
+            loadRecentLanguages();
+            // Загружаем выбранную модель
+            loadSelectedModel();
         });
 
          //Сохранение языка при переводе
@@ -613,11 +723,97 @@
           }).getTemperatureFromClient();
       }
 
-      // Инициализация всплывающих подсказок из shared.js
-      document.addEventListener('DOMContentLoaded', () => {
-          setupTooltips();
-      });
-
+      // Функция для быстрого перевода через Google Translate
+        async function quickTranslate() {
+            const sourceInput = document.getElementById('sourceLanguageInput').value.trim();
+            const targetInput = document.getElementById('targetLanguageInput').value.trim();
+            
+            // Используем значения из полей ввода или из выпадающих списков
+            const sourceLang = sourceInput || document.getElementById('sourceLanguage').value;
+            const targetLang = targetInput || document.getElementById('targetLanguage').value;
+            
+            UIManager.setLoading(true);
+            UIManager.clearMessages();
+            
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    google.script.run
+                        .withSuccessHandler(resolve)
+                        .withFailureHandler(reject)
+                        .quickTranslateWithGoogle(sourceLang, targetLang);
+                });
+                
+                // Сохраняем выбранные языки в localStorage
+                saveGoogleTranslateSettings(
+                    document.getElementById('sourceLanguage').value,
+                    document.getElementById('targetLanguage').value,
+                    sourceInput,
+                    targetInput
+                );
+                
+                UIManager.showMessage(result, 'status');
+            } catch (error) {
+                UIManager.showMessage(error.message || 'Произошла ошибка при быстром переводе', 'error');
+            } finally {
+                UIManager.setLoading(false);
+            }
+        }
+        
+        // Сохранение настроек Google Translate
+        function saveGoogleTranslateSettings(sourceCode, targetCode, sourceInput, targetInput) {
+            localStorage.setItem('googleTranslateSource', sourceCode);
+            localStorage.setItem('googleTranslateTarget', targetCode);
+            
+            if (sourceInput) {
+                localStorage.setItem('googleTranslateSourceInput', sourceInput);
+            }
+            
+            if (targetInput) {
+                localStorage.setItem('googleTranslateTargetInput', targetInput);
+            }
+        }
+        
+        // Загрузка настроек Google Translate
+        function loadGoogleTranslateSettings() {
+            const sourceCode = localStorage.getItem('googleTranslateSource');
+            const targetCode = localStorage.getItem('googleTranslateTarget');
+            const sourceInput = localStorage.getItem('googleTranslateSourceInput');
+            const targetInput = localStorage.getItem('googleTranslateTargetInput');
+            
+            if (sourceCode) {
+                document.getElementById('sourceLanguage').value = sourceCode;
+            }
+            
+            if (targetCode) {
+                document.getElementById('targetLanguage').value = targetCode;
+            }
+            
+            if (sourceInput) {
+                document.getElementById('sourceLanguageInput').value = sourceInput;
+            }
+            
+            if (targetInput) {
+                document.getElementById('targetLanguageInput').value = targetInput;
+            }
+        }
+        
+        // Обновляем поле ввода при выборе значения из выпадающего списка
+        function updateSourceLanguageInput() {
+            const select = document.getElementById('sourceLanguage');
+            const option = select.options[select.selectedIndex];
+            
+            if (select.value !== 'auto') {
+                document.getElementById('sourceLanguageInput').value = option.text;
+            } else {
+                document.getElementById('sourceLanguageInput').value = '';
+            }
+        }
+        
+        function updateTargetLanguageInput() {
+            const select = document.getElementById('targetLanguage');
+            const option = select.options[select.selectedIndex];
+            document.getElementById('targetLanguageInput').value = option.text;
+        }
     </script>
     <script src="shared.js"></script>
 </body>

@@ -34,7 +34,7 @@ function extractData(sourceRangeStr, headersStr, outputFormat, insertMode) {
         try {
             const aiResponse = openRouterRequest(prompt, model, temperature, 3, maxTokens);
             const parsedData = getExtractedData(aiResponse, outputFormat, headers);
-            insertExtractedData(activeCell, parsedData, headers, insertMode);
+            insertExtractedData(activeCell, parsedData, headers);
             return "Данные извлечены.";
         } catch (error) {
             logMessage(`Ошибка в extractData: ${error.toString()}`, true);
@@ -62,11 +62,17 @@ function buildExtractDataPrompt(sourceValues, headers, mode) {
         prompt += "Правила форматирования ответа:\n";
         prompt += "1. Используй разделитель столбцов: '|'.\n";
         prompt += "2. Используй разделитель строк: ';'.\n";
-        prompt += "3. Если значение содержит '|' или ';', замени эти символы на '\\n'.\n";
-        prompt += "4. Не добавляй заголовки столбцов в ответ.\n";
-        prompt += "5. Если для какого-то заголовка данных нет, верни пустую строку.\n";
-        prompt += "6. Не добавляй никакой дополнительный текст или пояснения.\n";
-        prompt += "7. Если данных одного типа несколько, извлеки их все и раздели символом '\\n'.\n";
+        prompt += "3. ВАЖНО! Каждая отдельная сущность (например, компания, человек, продукт и т.д.) должна быть в отдельной строке.\n";
+        prompt += "4. ВАЖНО! Если для одного поля у одной сущности есть несколько значений (например, несколько телефонов одной компании), объедини их внутри поля, используя символ '~' как разделитель.\n";
+        prompt += "5. Если значение содержит '|', ';' или '~', замени эти символы на '\\n'.\n";
+        prompt += "6. Не добавляй заголовки столбцов в ответ.\n";
+        prompt += "7. Если для какого-то заголовка данных нет, верни пустую строку.\n";
+        prompt += "8. Не добавляй никакой дополнительный текст или пояснения.\n";
+        prompt += "9. Для каждой сущности (каждой строки) строго используй количество полей равное количеству заголовков (${headers.length}).\n";
+        prompt += "10. Не добавляй лишний символ разделителя '|' в конце строки.\n";
+        prompt += "11. Используй только символ ';' в качестве разделителя между разными сущностями, не используй перенос строки.\n";
+        prompt += "12. Пример правильного ответа для двух компаний, где у одной два телефона, а у другой два адреса:\n";
+        prompt += "Компания A|Адрес компании A|Телефон1~Телефон2|Email компании A;Компания B|Адрес1~Адрес2|Телефон компании B|Email компании B\n";
         return prompt;
     }
 
@@ -84,83 +90,105 @@ function getExtractedData(aiResponse, outputFormat, headers) {
     answer = answer.replace(/^```csv\s*/i, '').replace(/```\s*$/i, '').trim();
 
     if (outputFormat === 'csv') {
-        const dataByHeader = {};
-        headers.forEach(header => dataByHeader[header] = []);
-
-        const rows = answer.split(';').map(row => row.trim()).filter(row => row !== '');
+        // Создаем массив объектов, где каждый объект представляет одну сущность
+        const entities = [];
+        
+        // Изменяем разделитель строк с ';' на '\n' или оба варианта
+        const rows = answer.split(/[\n;]/).map(row => row.trim()).filter(row => row !== '');
 
         rows.forEach(row => {
             const values = row.split('|').map(v => v.trim());
-
+            const entity = {};
+            
             values.forEach((value, index) => {
                 if (index < headers.length) {
-                    // Заменяем специальную последовательность \n на реальный перенос строки
-                    const processedValue = value.replace(/\\n/g, '\n');
+                    const header = headers[index];
                     
-                    // Проверяем, содержит ли значение переносы строк
-                    if (processedValue.includes('\n')) {
-                        // Разделяем значение по переносам строк и добавляем каждую часть как отдельный элемент
-                        const multipleValues = processedValue.split('\n').map(v => v.trim()).filter(v => v !== '');
-                        multipleValues.forEach(v => dataByHeader[headers[index]].push(v));
+                    // Заменяем специальную последовательность \n на реальный перенос строки
+                    let processedValue = value.replace(/\\n/g, '\n');
+                    
+                    // Обрабатываем множественные значения, разделенные символом '~'
+                    if (processedValue.includes('~')) {
+                        // Разделяем на массив значений
+                        entity[header] = processedValue.split('~').map(v => v.trim()).filter(v => v !== '');
                     } else {
-                        // Если нет переносов строк, добавляем как обычно
-                        dataByHeader[headers[index]].push(processedValue);
+                        entity[header] = [processedValue];
                     }
                 }
             });
+            
+            entities.push(entity);
         });
-
+        
+        // Преобразуем массив объектов обратно в формат dataByHeader для совместимости
+        const dataByHeader = {};
+        headers.forEach(header => dataByHeader[header] = []);
+        
+        entities.forEach(entity => {
+            headers.forEach(header => {
+                if (entity[header]) {
+                    dataByHeader[header].push(entity[header].join('\n'));
+                } else {
+                    dataByHeader[header].push('');
+                }
+            });
+        });
+        
         return dataByHeader;
     }
 
     throw new Error("Неподдерживаемый формат вывода в getExtractedData: " + outputFormat);
 }
 
-function insertExtractedData(startCell, dataByHeader, headers, insertMode) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+function insertExtractedData(startCell, dataByHeader, headers) {
+    const sheet = startCell.getSheet();
     const startRow = startCell.getRow();
     const startCol = startCell.getColumn();
 
-    if (insertMode === 'row') {
-        // Режим "В одну строку" - каждое значение в своей колонке в одной строке
-        for (let i = 0; i < headers.length; i++) {
-            const header = headers[i];
-            const cell = startCell.offset(0, i);
-            cell.setValue(dataByHeader[header].join('\n'));
-            cell.setWrap(true);
+    // Определяем максимальное количество строк для вставки
+    let maxRows = 0;
+    // Используем headers для итерации, так как dataByHeader может не содержать все ключи, если данных не было
+    headers.forEach(header => {
+        // Проверяем наличие ключа и что это массив
+        if (dataByHeader[header] && Array.isArray(dataByHeader[header])) {
+            maxRows = Math.max(maxRows, dataByHeader[header].length);
         }
+    });
+
+    if (maxRows === 0) {
+        logMessage("insertExtractedData: Нет данных для вставки (maxRows = 0).");
+        return; // Нет данных для вставки
+    }
+
+    // Определяем количество столбцов по количеству заголовков
+    const numCols = headers.length;
+    // Создаем пустой массив нужного размера
+    const outputData = Array(maxRows).fill(null).map(() => Array(numCols).fill(""));
+
+    // Заполняем массив данными
+    for (let i = 0; i < headers.length; i++) {
+        const header = headers[i]; // Используем оригинальный заголовок
+        const colIndex = i; // Индекс столбца соответствует порядку в headers
+        // Получаем данные по оригинальному заголовку
+        const values = dataByHeader[header] || []; // Используем header, а не headerLower
+
+        for (let j = 0; j < maxRows; j++) {
+            // Проверяем, есть ли значение для этой строки в массиве values
+            if (j < values.length && values[j] !== undefined && values[j] !== null) {
+                 // Убедимся, что записываем строку
+                outputData[j][colIndex] = String(values[j]);
+            }
+            // Если значения нет или оно undefined/null, оставляем пустую строку "" (уже установлено при создании outputData)
+        }
+    }
+
+    // Вставляем данные одним вызовом
+    if (outputData.length > 0) {
+        logMessage(`insertExtractedData: Вставка ${outputData.length} строк и ${numCols} столбцов в диапазон ${sheet.getName()}!${startCell.getA1Notation()}`);
+        sheet.getRange(startRow, startCol, outputData.length, numCols).setValues(outputData);
+         logMessage(`insertExtractedData: Вставка завершена.`);
     } else {
-        // Режим "По строкам"
-        // Проверяем, есть ли заголовки с несколькими значениями
-        let hasMultipleValues = false;
-        let maxDataCount = 0;
-        
-        for (const header of headers) {
-            if (dataByHeader[header].length > 1) {
-                hasMultipleValues = true;
-            }
-            maxDataCount = Math.max(maxDataCount, dataByHeader[header].length);
-        }
-        
-        // Если у всех заголовков только одно значение, вставляем как в режиме "В одну строку"
-        if (!hasMultipleValues) {
-            for (let i = 0; i < headers.length; i++) {
-                const header = headers[i];
-                const cell = startCell.offset(0, i);
-                cell.setValue(dataByHeader[header][0] || '');
-            }
-            return;
-        }
-        
-        // Если есть заголовки с несколькими значениями, создаем таблицу без заголовков
-        // Вставляем только данные
-        for (let i = 0; i < maxDataCount; i++) {
-            for (let j = 0; j < headers.length; j++) {
-                const header = headers[j];
-                const value = dataByHeader[header][i] || '';
-                startCell.offset(i, j).setValue(value);
-            }
-        }
+         logMessage("insertExtractedData: Массив outputData пуст, вставка не выполнена.");
     }
 }
 

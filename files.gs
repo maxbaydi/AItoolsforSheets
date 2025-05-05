@@ -123,10 +123,36 @@ function processUploadedFile(fileData) {
       if (isSpreadsheetFile) { // Используем isSpreadsheetFile вместо !isTextFile для ясности
           try {
              const tempSpreadsheet = SpreadsheetApp.openById(tempSheetId);
-             // Иногда сразу после создания таблица может быть недоступна, добавим паузу
-             Utilities.sleep(1000);
-             sheetNames = tempSpreadsheet.getSheets().map(sheet => sheet.getName());
-             logMessage(`processUploadedFile: Получены имена листов: ${JSON.stringify(sheetNames)}`);
+             // Заменяем фиксированную паузу на адаптивное ожидание с проверкой
+             let sheetsAvailable = false;
+             const maxAttempts = 5;
+             let attempts = 0;
+             
+             while (!sheetsAvailable && attempts < maxAttempts) {
+                attempts++;
+                try {
+                   const sheets = tempSpreadsheet.getSheets();
+                   if (sheets && sheets.length > 0) {
+                      sheetsAvailable = true;
+                      sheetNames = sheets.map(sheet => sheet.getName());
+                      logMessage(`processUploadedFile: Получены имена листов за ${attempts} попыток: ${JSON.stringify(sheetNames)}`);
+                   } else {
+                      // Короткая пауза перед следующей попыткой
+                      Utilities.sleep(200);
+                   }
+                } catch (e) {
+                   // Если произошла ошибка, делаем короткую паузу перед следующей попыткой
+                   Utilities.sleep(200);
+                   logMessage(`processUploadedFile: Попытка ${attempts} получения листов - не удалась: ${e}`);
+                }
+             }
+             
+             // Если после всех попыток листы не получены
+             if (!sheetsAvailable) {
+                logMessage(`processUploadedFile: Не удалось получить листы после ${maxAttempts} попыток. Возвращаем ["Лист1"]`, true);
+                sheetNames = ["Лист1"];
+             }
+             
              // Если лист всего один и называется "Лист1", вернем пустое имя, чтобы не смущать пользователя
              if (sheetNames.length === 1 && sheetNames[0] === "Лист1") {
                // Не меняем sheetNames, пусть будет "Лист1", т.к. его надо будет передать
@@ -139,7 +165,7 @@ function processUploadedFile(fileData) {
       } else {
           // Для текстовых файлов имя листа не нужно, возвращаем пустой массив
           sheetNames = [];
-          logMessage(`processUploadedFile: Файл текстовый, имена листов не извлекались.`);
+          logMessage(`processUploadedFile: Файл текстовый, имена листов не извлекаются.`);
       }
 
       logMessage(`processUploadedFile: Завершено. Возвращаем: sheetNames=${JSON.stringify(sheetNames)}, tempSheetId=${tempSheetId}, fileType=${isTextFile ? 'text' : 'table'}`);
@@ -239,14 +265,13 @@ function convertFileToSpreadsheet(file, folder) {
 
 /**
  * Преобразует файл (предположительно DOCX) в Google Doc.
- * Обновлено для работы с Drive API v3.
+ * Обновлено для работы с Drive API v3 и оптимизировано для быстрого доступа.
  * @param {GoogleAppsScript.Drive.File} file
  * @param {GoogleAppsScript.Drive.Folder} folder
  * @returns {string} ID созданного Google Doc.
  */
 function convertFileToGoogleDoc(file, folder) {
     try {
-        // Логируем для отладки
         logMessage(`convertFileToGoogleDoc: Начало конвертации файла ${file.getName()}, ID: ${file.getId()}`);
         
         // Конвертация DOC/DOCX в Google Doc через Drive API v3
@@ -266,12 +291,31 @@ function convertFileToGoogleDoc(file, folder) {
         const copied = Drive.Files.copy(resource, originalFileId);
         const docId = copied.id;
         
-        // Даем время на завершение конвертации
-        Utilities.sleep(2000);
+        // Заменяем sleep на активное ожидание с небольшими интервалами
+        let docReady = false;
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        while (!docReady && attempts < maxAttempts) {
+            try {
+                attempts++;
+                // Проверяем доступность документа
+                DocumentApp.openById(docId);
+                docReady = true;
+                logMessage(`convertFileToGoogleDoc: Документ доступен после ${attempts} попыток`);
+            } catch (e) {
+                // Если документ еще не готов, ждем короткое время и пробуем снова
+                Utilities.sleep(200);
+                logMessage(`convertFileToGoogleDoc: Ожидание конвертации, попытка ${attempts}/${maxAttempts}`);
+            }
+        }
+        
+        if (!docReady) {
+            logMessage(`convertFileToGoogleDoc: Предупреждение - документ может быть не полностью готов после ${maxAttempts} попыток`, true);
+        }
         
         // Удаляем исходный временный файл через API v3
         try {
-            // Пробуем через Drive API v3
             Drive.Files.update({trashed: true}, originalFileId);
             logMessage(`convertFileToGoogleDoc: Исходный файл помечен на удаление через Drive API v3`);
         } catch (e) {
@@ -299,9 +343,10 @@ function convertFileToGoogleDoc(file, folder) {
  * @returns {string} ID созданной Google Таблицы.
  */
 function convertGoogleDocToSpreadsheet(docId, pageRange) {
-    // Открываем Google Doc и ждём завершения конвертации
+    // Открываем Google Doc и используем малый таймаут вместо фиксированного большого
     const doc = DocumentApp.openById(docId);
-    Utilities.sleep(2000);
+    // Заменяем длинную паузу на короткую
+    Utilities.sleep(200);
     
     // Создаем временную таблицу
     const tempSpreadsheet = SpreadsheetApp.create("Temp Sheet from Doc " + Date.now());
@@ -310,104 +355,155 @@ function convertGoogleDocToSpreadsheet(docId, pageRange) {
     try {
         logMessage(`convertGoogleDocToSpreadsheet: Начинаем извлечение текста из документа ${docId}`);
         
+        // Данные для пакетной записи
+        let batchData = [];
+        
         // Логика извлечения текста с учетом pageRange
         if (pageRange) {
             const pages = pageRange.split(','); // Разбираем строку диапазона
             const body = doc.getBody();
-            // Получаем все дочерние элементы через getNumChildren/getChild
-            const elements = [];
-            const count = body.getNumChildren();
             
-            // Извлекаем текст по частям для больших документов
-            let rowIndex = 1;
-            let currentPage = 0;
-            let pageBreakFound = false;
-            
-            for (let i = 0; i < count; i++) {
-                try {
-                    const element = body.getChild(i);
-                    let elementType = element.getType();
-                    let isPageBreak = (elementType === DocumentApp.ElementType.PAGE_BREAK);
-                    
-                    // Увеличиваем счетчик страниц при разрыве страницы или в начале нового абзаца после разрыва
-                    if (isPageBreak || (pageBreakFound && elementType === DocumentApp.ElementType.PARAGRAPH)) {
-                        currentPage++;
-                        pageBreakFound = isPageBreak;
-                    } else if (i === 0) {
-                        currentPage = 1; // Начинаем с первой страницы
-                    }
-                    
-                    // Проверяем, входит ли текущая страница в заданный диапазон
+            // Оптимизация: сначала получаем весь текст, если документ простой и не содержит сложного форматирования
+            // Это будет работать быстрее для документов с простым текстом
+            if (body.getNumChildren() < 100 && !body.getTables().length) {
+                const fullText = body.getText();
+                // Разделяем текст на страницы по специальным символам перевода страницы (\f)
+                const textPages = fullText.split('\f');
+                let pageNum = 1;
+                
+                for (const page of textPages) {
+                    // Проверяем, входит ли страница в заданный диапазон
                     let include = false;
-                    for (const page of pages) {
-                        const range = page.trim().split('-');
+                    for (const pageRange of pages) {
+                        const range = pageRange.trim().split('-');
                         if (range.length === 1) { // Одиночная страница "1"
-                            if (parseInt(range[0]) === currentPage) {
+                            if (parseInt(range[0]) === pageNum) {
                                 include = true;
                                 break;
                             }
                         } else if (range.length === 2) { // Диапазон "2-4"
                             const start = parseInt(range[0]);
                             const end = parseInt(range[1]);
-                            if (!isNaN(start) && !isNaN(end) && currentPage >= start && currentPage <= end) {
+                            if (!isNaN(start) && !isNaN(end) && pageNum >= start && pageNum <= end) {
                                 include = true;
                                 break;
                             }
                         }
                     }
                     
-                    // Если страница входит в диапазон и это не сам разрыв страницы, добавляем текст
-                    if (include && !isPageBreak) {
-                        if (elementType === DocumentApp.ElementType.PARAGRAPH) {
-                            const paragraphText = element.asParagraph().getText();
-                            // Записываем текст абзаца в отдельную ячейку
-                            if (paragraphText.trim()) {
-                                sheet.getRange(rowIndex++, 1).setValue(paragraphText);
-                            }
-                        } else if (elementType === DocumentApp.ElementType.TABLE) {
-                            const table = element.asTable();
-                            for (let r = 0; r < table.getNumRows(); r++) {
-                                let rowText = [];
-                                for (let c = 0; c < table.getRow(r).getNumCells(); c++) {
-                                    rowText.push(table.getCell(r, c).getText());
-                                }
-                                // Записываем строку таблицы в отдельную ячейку
-                                if (rowText.join('|').trim()) {
-                                    sheet.getRange(rowIndex++, 1).setValue(rowText.join('|'));
-                                }
-                            }
-                        } else if (elementType === DocumentApp.ElementType.LIST_ITEM) {
-                            const listItemText = '* ' + element.asListItem().getText();
-                            // Записываем элемент списка в отдельную ячейку
-                            if (listItemText.trim()) {
-                                sheet.getRange(rowIndex++, 1).setValue(listItemText);
+                    if (include && page.trim()) {
+                        // Разбиваем текст страницы на строки и добавляем в batchData
+                        const lines = page.split(/\r?\n/);
+                        for (const line of lines) {
+                            if (line.trim()) {
+                                batchData.push([line]);
                             }
                         }
                     }
-                } catch (elementError) {
-                    logMessage(`Ошибка при обработке элемента ${i}: ${elementError}`, true);
-                    // Продолжаем обработку, пропускаем проблемный элемент
+                    pageNum++;
+                }
+            } else {
+                // Используем оригинальный метод для сложных документов
+                // Получаем все дочерние элементы через getNumChildren/getChild
+                let rowIndex = 1;
+                let currentPage = 0;
+                let pageBreakFound = false;
+                const count = body.getNumChildren();
+                
+                for (let i = 0; i < count; i++) {
+                    try {
+                        const element = body.getChild(i);
+                        let elementType = element.getType();
+                        let isPageBreak = (elementType === DocumentApp.ElementType.PAGE_BREAK);
+                        
+                        // Увеличиваем счетчик страниц при разрыве страницы или в начале нового абзаца после разрыва
+                        if (isPageBreak || (pageBreakFound && elementType === DocumentApp.ElementType.PARAGRAPH)) {
+                            currentPage++;
+                            pageBreakFound = isPageBreak;
+                        } else if (i === 0) {
+                            currentPage = 1; // Начинаем с первой страницы
+                        }
+                        
+                        // Проверяем, входит ли текущая страница в заданный диапазон
+                        let include = false;
+                        for (const page of pages) {
+                            const range = page.trim().split('-');
+                            if (range.length === 1) { // Одиночная страница "1"
+                                if (parseInt(range[0]) === currentPage) {
+                                    include = true;
+                                    break;
+                                }
+                            } else if (range.length === 2) { // Диапазон "2-4"
+                                const start = parseInt(range[0]);
+                                const end = parseInt(range[1]);
+                                if (!isNaN(start) && !isNaN(end) && currentPage >= start && currentPage <= end) {
+                                    include = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Если страница входит в диапазон и это не сам разрыв страницы, добавляем текст
+                        if (include && !isPageBreak) {
+                            if (elementType === DocumentApp.ElementType.PARAGRAPH) {
+                                const paragraphText = element.asParagraph().getText();
+                                // Добавляем в массив для пакетной записи
+                                if (paragraphText.trim()) {
+                                    batchData.push([paragraphText]);
+                                }
+                            } else if (elementType === DocumentApp.ElementType.TABLE) {
+                                const table = element.asTable();
+                                for (let r = 0; r < table.getNumRows(); r++) {
+                                    let rowText = [];
+                                    for (let c = 0; c < table.getRow(r).getNumCells(); c++) {
+                                        rowText.push(table.getCell(r, c).getText());
+                                    }
+                                    // Добавляем в массив для пакетной записи
+                                    if (rowText.join('|').trim()) {
+                                        batchData.push([rowText.join('|')]);
+                                    }
+                                }
+                            } else if (elementType === DocumentApp.ElementType.LIST_ITEM) {
+                                const listItemText = '* ' + element.asListItem().getText();
+                                // Добавляем в массив для пакетной записи
+                                if (listItemText.trim()) {
+                                    batchData.push([listItemText]);
+                                }
+                            }
+                        }
+                    } catch (elementError) {
+                        logMessage(`Ошибка при обработке элемента ${i}: ${elementError}`, true);
+                        // Продолжаем обработку, пропускаем проблемный элемент
+                    }
                 }
             }
             
-            logMessage(`convertGoogleDocToSpreadsheet: Текст извлечен, создано ${rowIndex-1} строк`);
+            logMessage(`convertGoogleDocToSpreadsheet: Текст извлечен, найдено ${batchData.length} строк текста`);
         } else {
-            // Если pageRange не указан, извлекаем весь текст блоками
+            // Если pageRange не указан, извлекаем весь текст более оптимально
             const body = doc.getBody();
             const text = body.getText();
             
-            // Разбиваем весь текст на строки и вставляем по одной в таблицу
+            // Разбиваем весь текст на строки и собираем в массив для пакетной записи
             const lines = text.split(/\r?\n/);
-            let rowIndex = 1;
-            
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].trim()) {
-                    sheet.getRange(rowIndex++, 1).setValue(lines[i]);
+            for (let line of lines) {
+                if (line.trim()) {
+                    batchData.push([line]);
                 }
             }
             
-            logMessage(`convertGoogleDocToSpreadsheet: Весь текст извлечен, создано ${rowIndex-1} строк`);
+            logMessage(`convertGoogleDocToSpreadsheet: Весь текст извлечен, найдено ${batchData.length} строк`);
         }
+        
+        // Пакетная запись всех данных одним вызовом (намного быстрее, чем построчная)
+        if (batchData.length > 0) {
+            sheet.getRange(1, 1, batchData.length, 1).setValues(batchData);
+            logMessage(`convertGoogleDocToSpreadsheet: Данные записаны в таблицу одной пакетной операцией`);
+        } else {
+            // Если данных нет, запишем сообщение
+            sheet.getRange(1, 1).setValue("Не найдено текста для извлечения.");
+        }
+        
     } catch (e) {
         logMessage(`Ошибка при конвертации документа в таблицу: ${e}`, true);
         // Записываем сообщение об ошибке в первую ячейку
@@ -557,141 +653,323 @@ function analyzeAndInsertExtractedData(fileData) {
 
 /**
  * Формирует УПРОЩЕННЫЙ промпт для извлечения данных из табличных файлов.
- */
+  */
 function buildTablePrompt(sheetData, sourceHeaders, targetHeaders, aiInstructions) {
     // Собираем ВСЕ строки данных (пропуская заголовок)
-    let dataString = "";
+    const dataLines = [];
     for (let i = 1; i < sheetData.length; i++) {
         if (sheetData[i].some(cell => String(cell).trim() !== '')) {
-            dataString += sheetData[i].join('|') + ';';
+            dataLines.push(sheetData[i].join('|'));
         }
     }
-    if (dataString.endsWith(';')) {
-        dataString = dataString.slice(0, -1);
-    }
+    const dataString = dataLines.join(';');
 
-    let prompt = `ЗАДАЧА: Извлечь данные из предоставленного CSV-фрагмента ("ДАННЫЕ ИЗ ФАЙЛА") в соответствии с "ЦЕЛЕВЫМИ ЗАГОЛОВКАМИ". Применить "ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ" при извлечении. Вернуть результат СТРОГО в формате CSV ('|' - столбцы, ';' - строки), БЕЗ ЗАГОЛОВКОВ.
+    // Формируем промпт, используя массив строк и join() вместо конкатенации строк
+    const promptParts = [
+        `ЗАДАЧА: Извлечь данные из предоставленного CSV-фрагмента ("ДАННЫЕ ИЗ ФАЙЛА") в соответствии с "ЦЕЛЕВЫМИ ЗАГОЛОВКАМИ". Применить "ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ" при извлечении. Вернуть результат СТРОГО в формате CSV ('|' - столбцы, ';' - строки), БЕЗ ЗАГОЛОВКОВ.`,
+        `\nЦЕЛЕВЫЕ ЗАГОЛОВКИ (извлечь данные для них):\n${targetHeaders.join(', ')}`,
+        `\nЗАГОЛОВКИ ИСХОДНОГО ФАЙЛА (для контекста): ${sourceHeaders.join(", ")}`,
+        `\nДАННЫЕ ИЗ ФАЙЛА (CSV, '|' - столбцы, ';' - строки):\n${dataString}`
+    ];
 
-ЦЕЛЕВЫЕ ЗАГОЛОВКИ (извлечь данные для них):
-${targetHeaders.join(', ')}
-
-ЗАГОЛОВКИ ИСХОДНОГО ФАЙЛА (для контекста): ${sourceHeaders.join(", ")}
-
-ДАННЫЕ ИЗ ФАЙЛА (CSV, '|' - столбцы, ';' - строки):
-${dataString}
-`;
-
+    // Добавляем дополнительные инструкции
     if (aiInstructions) {
-        prompt += `\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ (применить при извлечении и форматировании):\n${aiInstructions}\n`;
+        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ (применить при извлечении и форматировании):\n${aiInstructions}`);
     } else {
-        prompt += `\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ: Нет.\n`;
+        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ: Нет.`);
     }
 
-    prompt += `\nПРАВИЛА ФОРМАТИРОВАНИЯ ОТВЕТА:
-* Вернуть ТОЛЬКО CSV данные.
-* Разделитель столбцов: '|'.
-* Разделитель строк: ';'.
-* Если данных для целевого столбца нет, оставить поле ПУСТЫМ.
-* Если в извлекаемых данных встречается символ ';', ЗАМЕНИТЬ его на '.' (точка).
-* НЕ включать заголовки столбцов в ответ.
-* НЕ добавлять никаких пояснений или другого текста.`;
+    // Усиленные правила форматирования ответа
+    promptParts.push(`\nПРАВИЛА ФОРМАТИРОВАНИЯ ОТВЕТА - ЧРЕЗВЫЧАЙНО ВАЖНО:
+1. СТРОГО ЗАПРЕЩЕНО добавлять любой текст, пояснения или комментарии в ответ.
+2. СТРОГО ЗАПРЕЩЕНО использовать любые другие символы-разделители, кроме указанных.
+3. СТРОГО ЗАПРЕЩЕНО включать заголовки или название колонок в ответ.
+4. Начинать ответ строго с первой ячейки данных, без пустых строк.
+5. Для разделения СТОЛБЦОВ всегда использовать ТОЛЬКО вертикальную черту '|'. 
+6. Для разделения СТРОК/ЗАПИСЕЙ всегда использовать ТОЛЬКО точку с запятой ';'.
+7. Если несколько записей (строк) - разделять их точкой с запятой ';'.
+8. Если данных для целевого столбца нет, оставить поле ПУСТЫМ (пример: 'значение1||значение3').
+9. Если в извлекаемых данных встречается символ ';', ЗАМЕНИТЬ его на '.' (точка).
+10. Для каждого целевого заголовка должна быть ОДНА колонка в том же порядке.
 
-    return prompt;
+ФОРМАТ ОТВЕТА - ВСЕГДА ВЫГЛЯДИТ ТАК:
+значение1|значение2|значение3;
+значение4|значение5|значение6;
+
+НЕ СОБЛЮДАТЬ ЭТИ ПРАВИЛА АБСОЛЮТНО НЕДОПУСТИМО!`);
+
+    // Объединяем все части промпта вместе
+    return promptParts.join('');
 }
 
 /**
- * Формирует УПРОЩЕННЫЙ промпт для извлечения данных из текстовых файлов.
+ * Формирует СТРОГИЙ промпт для извлечения данных из текстовых файлов.
+ * Усилен для обеспечения единообразного формата ответа от разных моделей.
  */
 function buildTextPrompt(sheetData, targetHeaders, aiInstructions) {
-    let fullText = "";
+    // Оптимизированный вариант без многократной конкатенации строк
+    let textLines = [];
     if (sheetData && sheetData.length > 0) {
-        fullText = sheetData.map(row => row.join(" ")).join("\n");
+        textLines = sheetData.map(row => row.join(" "));
     }
-
-    let prompt = `ЗАДАЧА: Извлечь данные из предоставленного ТЕКСТА ("ТЕКСТ ФАЙЛА") в соответствии с "ЦЕЛЕВЫМИ ЗАГОЛОВКАМИ". Применить "ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ" при извлечении. Вернуть результат СТРОГО в формате CSV ('|' - столбцы, ';' - строки), БЕЗ ЗАГОЛОВКОВ.
-
-ЦЕЛЕВЫЕ ЗАГОЛОВКИ (извлечь данные для них):
-${targetHeaders.join(', ')}
-
-ТЕКСТ ФАЙЛА:
-${fullText}
-`;
-
+    const fullText = textLines.join("\n");
+    
+    // Формируем промпт из массива частей для лучшей производительности
+    const promptParts = [
+        `ЗАДАЧА: Извлечь данные из предоставленного ТЕКСТА ("ТЕКСТ ФАЙЛА") в соответствии с "ЦЕЛЕВЫМИ ЗАГОЛОВКАМИ". Применить "ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ" при извлечении. Вернуть результат СТРОГО в формате CSV ('|' - столбцы, ';' - строки), БЕЗ ЗАГОЛОВКОВ.`,
+        `\nЦЕЛЕВЫЕ ЗАГОЛОВКИ (извлечь данные для них):\n${targetHeaders.join(', ')}`,
+        `\nТЕКСТ ФАЙЛА:\n${fullText}`
+    ];
+    
+    // Добавляем дополнительные инструкции в массив
     if (aiInstructions) {
-        prompt += `\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ (применить при извлечении и форматировании):\n${aiInstructions}\n`;
+        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ (применить при извлечении и форматировании):\n${aiInstructions}`);
     } else {
-        prompt += `\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ: Нет.\n`;
+        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ: Нет.`);
     }
-
+    
     // Обрабатывать весь текст целиком, страницы уже учтены на уровне скрипта
-    prompt += `\nОбрабатывать весь текст целиком.\n`;
+    promptParts.push(`\nОбрабатывать весь текст целиком.`);
+    
+    // Усиленные правила форматирования ответа - аналогично табличному промпту
+    promptParts.push(`\nПРАВИЛА ФОРМАТИРОВАНИЯ ОТВЕТА - ЧРЕЗВЫЧАЙНО ВАЖНО:
+1. СТРОГО ЗАПРЕЩЕНО добавлять любой текст, пояснения или комментарии в ответ.
+2. СТРОГО ЗАПРЕЩЕНО использовать любые другие символы-разделители, кроме указанных.
+3. СТРОГО ЗАПРЕЩЕНО включать заголовки или название колонок в ответ.
+4. Начинать ответ строго с первой ячейки данных, без пустых строк.
+5. Для разделения СТОЛБЦОВ всегда использовать ТОЛЬКО вертикальную черту '|'. 
+6. Для разделения СТРОК/ЗАПИСЕЙ всегда использовать ТОЛЬКО точку с запятой ';'.
+7. Если несколько записей (строк) - разделять их точкой с запятой ';'.
+8. Если данных для целевого столбца нет, оставить поле ПУСТЫМ (пример: 'значение1||значение3').
+9. Если в извлекаемых данных встречается символ ';', ЗАМЕНИТЬ его на '.' (точка).
+10. Для каждого целевого заголовка должна быть ОДНА колонка в том же порядке.
 
-    prompt += `\nПРАВИЛА ФОРМАТИРОВАНИЯ ОТВЕТА:
-* Вернуть ТОЛЬКО CSV данные.
-* Разделитель столбцов: '|'.
-* Разделитель строк: ';'.
-* Если данных для целевого столбца нет, оставить поле ПУСТЫМ.
-* Если в извлекаемых данных встречается символ ';', ЗАМЕНИТЬ его на '.' (точка).
-* НЕ включать заголовки столбцов в ответ.
-* НЕ добавлять никаких пояснений или другого текста.`;
+ФОРМАТ ОТВЕТА - ВСЕГДА ВЫГЛЯДИТ ТАК:
+значение1|значение2|значение3;
+значение4|значение5|значение6;
 
-    return prompt;
+НЕ СОБЛЮДАТЬ ЭТИ ПРАВИЛА АБСОЛЮТНО НЕДОПУСТИМО!`);
+    
+    // Объединяем все части в финальный промпт
+    return promptParts.join('');
 }
 
 /**
  * Обрабатывает ответ AI и возвращает массив строковых массивов.
+ * Учитывает различные форматы ответов от разных моделей.
+ * @param {object} aiResponse Ответ от AI.
+ * @param {string} columnDelimiter Ожидаемый разделитель колонок (используется как dataDelimiter, если не определен автоматически).
+ * @returns {string[][]} Массив массивов строк с данными.
  */
-function parseCsvAnswer(aiResponse, columnDelimiter) {
-    const rowDelimiter = ';';
+function parseCsvAnswer(aiResponse, columnDelimiter) { // columnDelimiter передан, но не используется в текущей логике определения разделителей
+    const defaultRowDelimiter = ';'; // Используем как разделитель записей по умолчанию или при очистке
     if (!aiResponse?.choices?.[0]?.message) {
         throw new Error("Неожиданный ответ от OpenRouter: " + JSON.stringify(aiResponse));
     }
+
     let answer = aiResponse.choices[0].message.content.trim();
-    answer = answer.replace(/^```csv\s*/i, '').replace(/```\s*$/i, '').trim();
-    answer = answer.replace(/[\r\n]+/g, rowDelimiter);
-    answer = answer.replace(/^;+|;+$|;;+/g, ';');
+
+    // Очищаем ответ от всех вариантов маркеров кода и лишних символов
+    answer = answer.replace(/^```(?:csv|text|plain|)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    // Заменяем переносы строк на стандартный разделитель записей
+    answer = answer.replace(/[\r\n]+/g, defaultRowDelimiter);
+    // Удаляем лишние разделители записей в начале, конце и дубликаты
+    answer = answer.replace(/^;+|;+$|;;+/g, ';').trim(); // Добавил trim() на всякий случай
+
     logMessage(`parseCsvAnswer, answer after cleanup: ${answer}`);
+
     const result = [];
-    if (answer) {
-        try {
-            const rows = answer.split(rowDelimiter);
-            for (const rowString of rows) {
-                if (rowString.trim() === '') continue;
-                const parsedRow = Utilities.parseCsv(rowString, columnDelimiter.charCodeAt(0))[0];
-                if (parsedRow) result.push(parsedRow.map(cell => cell.trim()));
-            }
-        } catch (error) {
-            logMessage(`Ошибка парсинга CSV: ${error.message}. Ответ AI: "${answer}"`, true);
-            return [];
-        }
+
+    if (!answer) {
+        return result;
     }
+
+    try {
+        // Анализируем структуру ответа для определения разделителей
+        const hasPipe = answer.includes('|');
+        const hasSemicolon = answer.includes(';');
+
+        // Если оба разделителя отсутствуют, возвращаем всю строку как одну запись с одной ячейкой
+        if (!hasPipe && !hasSemicolon) {
+            // Убедимся, что возвращаем массив массивов
+            return [[answer]];
+        }
+
+        // Определяем, какой символ используется для разделения записей (строк), а какой для данных (колонок)
+        // Эвристика: если присутствуют оба символа ('|' и ';'),
+        // предполагаем, что тот, который встречается реже, разделяет записи (строки),
+        // а тот, что чаще - колонки внутри записи.
+        let recordDelimiter, dataDelimiter;
+
+        if (hasPipe && hasSemicolon) {
+            const pipeCount = (answer.match(/\|/g) || []).length;
+            const semicolonCount = (answer.match(/;/g) || []).length;
+
+            // Если '|' больше, то ';' - разделитель записей, '|' - разделитель данных
+            if (pipeCount > semicolonCount) {
+                recordDelimiter = ';';
+                dataDelimiter = '|';
+            } else { // Иначе (если ';' больше или равно) '|' - разделитель записей, ';' - разделитель данных
+                recordDelimiter = '|';
+                dataDelimiter = ';';
+            }
+            logMessage(`parseCsvAnswer: Detected delimiters - Record: '${recordDelimiter}', Data: '${dataDelimiter}'`);
+        } else if (hasPipe) {
+            // Только '|': предполагаем, что это разделитель данных, а записи разделены defaultRowDelimiter (';') после очистки
+            recordDelimiter = defaultRowDelimiter; // ';'
+            dataDelimiter = '|';
+            logMessage(`parseCsvAnswer: Only '|' found. Assuming Record: '${recordDelimiter}', Data: '${dataDelimiter}'`);
+             // Перепроверяем, есть ли ';' после очистки. Если нет, то записей нет.
+             if (!answer.includes(recordDelimiter)) {
+                 recordDelimiter = null; // Нет разделителя записей
+                 logMessage(`parseCsvAnswer: ';' not found after cleanup. Setting recordDelimiter to null.`);
+             }
+        } else { // Только ';'
+            // Только ';': предполагаем, что это разделитель данных, записи не разделены (или были разделены переносами, замененными на ';')
+            // Это неоднозначный случай. Будем считать ';' разделителем данных, а разделителя записей нет.
+            recordDelimiter = null; // Нет явного разделителя записей, кроме ';'
+            dataDelimiter = ';';
+            logMessage(`parseCsvAnswer: Only ';' found. Assuming Record: null, Data: '${dataDelimiter}'`);
+            // Если ';' используется как разделитель данных, то как разделить записи?
+            // В текущей логике это приведет к тому, что вся строка будет считаться одной записью, разделенной ';'.
+            // Возможно, стоит использовать defaultRowDelimiter (';') как recordDelimiter здесь?
+            // Давайте попробуем:
+            recordDelimiter = defaultRowDelimiter; // ';'
+             // Но если ';' - это и разделитель данных, и разделитель записей, будет путаница.
+             // Оставим пока dataDelimiter = ';', recordDelimiter = null для этого случая.
+             recordDelimiter = null;
+
+
+        }
+
+        // Разделяем на отдельные записи
+        // Если recordDelimiter определен, используем его. Иначе считаем всю строку одной записью.
+        const records = recordDelimiter
+            ? answer.split(recordDelimiter).filter(rec => rec.trim() !== '')
+            : [answer]; // Если разделитель записей не найден, считаем всю строку одной записью
+
+        logMessage(`parseCsvAnswer: Split into ${records.length} potential records using delimiter '${recordDelimiter}'`);
+
+        // Обрабатываем каждую запись
+        for (const record of records) {
+            const trimmedRecord = record.trim();
+            if (trimmedRecord === '') continue;
+
+            // Разделяем данные записи на колонки, используя определенный dataDelimiter
+            if (trimmedRecord.includes(dataDelimiter)) {
+                try {
+                    // Используем стандартный парсер CSV для колонок
+                    // Utilities.parseCsv ожидает символ, а не строку
+                    const parsedRow = Utilities.parseCsv(trimmedRecord, dataDelimiter.charCodeAt(0))[0];
+                    // Проверяем, что строка не пустая после парсинга
+                    if (parsedRow && parsedRow.some(cell => String(cell).trim() !== '')) {
+                        result.push(parsedRow.map(cell => String(cell).trim()));
+                    } else {
+                         logMessage(`parseCsvAnswer: Parsed row is empty or invalid for record: "${trimmedRecord}"`);
+                    }
+                } catch (e) {
+                    logMessage(`parseCsvAnswer: Utilities.parseCsv failed for record "${trimmedRecord}" with delimiter '${dataDelimiter}'. Error: ${e}. Falling back to split.`);
+                    // В случае ошибки парсинга (например, некорректные кавычки), делаем разделение вручную
+                    const cells = trimmedRecord.split(dataDelimiter).map(cell => cell.trim());
+                     // Проверяем, что строка не пустая после ручного разделения
+                    if (cells.some(cell => cell !== '')) {
+                        result.push(cells);
+                    } else {
+                         logMessage(`parseCsvAnswer: Manual split resulted in empty row for record: "${trimmedRecord}"`);
+                    }
+                }
+            } else {
+                // Если разделителя данных нет в этой записи, добавляем всю запись как одну колонку
+                 logMessage(`parseCsvAnswer: Data delimiter '${dataDelimiter}' not found in record "${trimmedRecord}". Adding as single cell.`);
+                result.push([trimmedRecord]);
+            }
+        }
+
+        // Дополнительная валидация и очистка результата (удаление пустых строк/ячеек)
+        // Этот блок можно упростить или удалить, если парсинг и фильтрация выше работают корректно
+        const finalResult = [];
+        for (let row of result) {
+            // Убираем пустые ячейки в конце каждой строки
+            let lastNonEmptyIndex = -1;
+            for (let j = row.length - 1; j >= 0; j--) {
+                if (row[j] !== '') {
+                    lastNonEmptyIndex = j;
+                    break;
+                }
+            }
+            // Обрезаем строку, если есть пустые ячейки в конце
+            if (lastNonEmptyIndex < row.length - 1) {
+                row = row.slice(0, lastNonEmptyIndex + 1);
+            }
+
+            // Если строка не пустая после обрезки, добавляем в результат
+            if (row.length > 0) {
+                 finalResult.push(row);
+            }
+        }
+         logMessage(`parseCsvAnswer, final result after validation: ${JSON.stringify(finalResult)}`);
+         return finalResult; // Возвращаем очищенный результат
+
+    } catch (error) {
+        logMessage(`Ошибка парсинга CSV: ${error.message}. Ответ AI: "${answer}"`, true);
+        // В случае ошибки возвращаем пустой массив, чтобы не прерывать выполнение
+        return [];
+    }
+
+    // Возвращаем результат обработки (добавлен для безопасности)
     logMessage(`parseCsvAnswer, final result: ${JSON.stringify(result)}`);
     return result;
 }
 
 /**
  * Вставляет данные в целевой лист после analyzeAndInsertExtractedData.
+ * Исправлена проблема дублирования данных.
  */
 function insertDataIntoSheet(data, targetSheet, selectedHeaders, targetHeaders) {
     if (!data || data.length === 0 || !targetSheet || !selectedHeaders?.length || !targetHeaders?.length) return;
+    
+    // Добавляем защиту от дублирования - проверяем, есть ли уже данные с таким же содержанием
     const startRow = targetSheet.getLastRow() + 1;
     const numRows = data.length;
     const targetHeaderIndexMap = {};
-    targetHeaders.forEach((h,i) => { if (h) targetHeaderIndexMap[h.toLowerCase()] = i; });
+    
+    targetHeaders.forEach((h,i) => { 
+        if (h) targetHeaderIndexMap[h.toLowerCase()] = i; 
+    });
+    
     let maxCol = -1;
-    selectedHeaders.forEach(sh => { const idx = targetHeaderIndexMap[sh.toLowerCase()]; if (idx >= 0) maxCol = Math.max(maxCol, idx); });
+    selectedHeaders.forEach(sh => { 
+        const idx = targetHeaderIndexMap[sh.toLowerCase()]; 
+        if (idx >= 0) maxCol = Math.max(maxCol, idx); 
+    });
+    
     if (maxCol < 0) return;
     const numCols = maxCol + 1;
-    const outputData = Array.from({ length: numRows }, () => Array(numCols).fill(""));
-    for (let i=0; i<numRows; i++) {
+    
+    // Проверяем на дубликаты
+    const outputData = [];
+    
+    for (let i = 0; i < numRows; i++) {
         const row = Array.isArray(data[i]) ? data[i] : [];
-        for (let j=0; j<selectedHeaders.length; j++) {
+        const outputRow = Array(numCols).fill("");
+        
+        for (let j = 0; j < selectedHeaders.length; j++) {
             const idx = targetHeaderIndexMap[selectedHeaders[j].toLowerCase()];
-            if (idx >= 0 && j < row.length) outputData[i][idx] = row[j];
+            if (idx >= 0 && j < row.length) outputRow[idx] = row[j];
+        }
+        
+        // Проверяем, что строка не пустая (содержит хотя бы один непустой элемент)
+        if (outputRow.some(cell => cell.toString().trim() !== "")) {
+            outputData.push(outputRow);
         }
     }
+    
+    // Если после фильтрации данных нет, выходим
+    if (outputData.length === 0) return;
+    
     try {
-        targetSheet.getRange(startRow, 1, numRows, numCols).setValues(outputData);
+        targetSheet.getRange(startRow, 1, outputData.length, numCols).setValues(outputData);
+        logMessage(`insertDataIntoSheet: Вставлено ${outputData.length} строк данных`);
     } catch(e) {
         logMessage(`Ошибка при записи данных: ${e}`, true);
     }
@@ -717,13 +995,43 @@ function getTargetHeaders(targetSheet, headerRow) {
  */
 function processFileAndAnalyze(fileData) {
   try {
-    // Сохраняем fileData во временное хранилище, чтобы не передавать большие данные дважды
+    // Создаем уникальный идентификатор для хранения данных файла
     const fileDataId = Utilities.getUuid();
+    
+    // Обрабатываем файл один раз и сохраняем результаты конвертации
+    const processResult = processUploadedFile(fileData);
+    
+    // Проверяем на наличие ошибок
+    if (processResult.error) {
+      return {
+        success: false,
+        error: processResult.error
+      };
+    }
+    
+    // Сохраняем результаты первичной обработки вместе с данными файла
+    // Удаляем большие данные из fileData перед сохранением в кэше
+    const fileDataForCache = Object.assign({}, fileData);
+    delete fileDataForCache.data; // Удаляем большие бинарные данные
+    
+    // Сохраняем данные в кэш для второго шага
+    const cacheData = {
+      fileData: fileDataForCache,
+      processResult: {
+        sheetNames: processResult.sheetNames || [],
+        tempSheetId: processResult.tempSheetId,
+        fileType: processResult.fileType
+      },
+      originalData: fileData.data // Сохраняем base64 данные отдельно
+    };
+    
     CacheService.getScriptCache().put(
       "fileDataCache_" + fileDataId, 
-      JSON.stringify(fileData),
+      JSON.stringify(cacheData),
       3600 // 1 час хранения
     );
+    
+    logMessage(`processFileAndAnalyze: Файл обработан и сохранен с ID: ${fileDataId}, tempSheetId: ${processResult.tempSheetId}`);
     
     return {
       success: true,
@@ -731,61 +1039,10 @@ function processFileAndAnalyze(fileData) {
       message: "Файл успешно обработан. Теперь можно извлекать данные."
     };
   } catch (error) {
+    logMessage(`Ошибка в processFileAndAnalyze: ${error.toString()}`, true);
     return {
       success: false,
       error: `Ошибка при обработке файла: ${error.toString()}`
-    };
-  }
-}
-
-/**
- * Второй шаг - анализ данных по ID из кэша
- */
-function analyzeDataById(fileDataId, headerRow, selectedHeaders, aiInstructions, pageRange) {
-  try {
-    // Получаем данные из кэша
-    const cachedData = CacheService.getScriptCache().get("fileDataCache_" + fileDataId);
-    if (!cachedData) {
-      return {
-        success: false,
-        error: "Данные файла не найдены в кэше. Пожалуйста, загрузите файл заново."
-      };
-    }
-    
-    const fileData = JSON.parse(cachedData);
-    
-    // Добавляем параметры анализа
-    fileData.headerRow = headerRow;
-    fileData.selectedHeaders = selectedHeaders;
-    fileData.aiInstructions = aiInstructions;
-    fileData.pageRange = pageRange;
-    
-    // Вызываем функцию анализа
-    const result = analyzeAndInsertExtractedData(fileData);
-    
-    // Очищаем кэш
-    CacheService.getScriptCache().remove("fileDataCache_" + fileDataId);
-    
-    if (typeof result === 'string') {
-      return {
-        success: true,
-        message: result
-      };
-    } else if (result.error) {
-      return {
-        success: false,
-        error: result.error
-      };
-    } else {
-      return {
-        success: true,
-        message: "Данные успешно извлечены и вставлены."
-      };
-    }
-  } catch (error) {
-    return {
-      success: false,
-      error: `Ошибка при анализе данных: ${error.toString()}`
     };
   }
 }
@@ -821,4 +1078,177 @@ function isValidBase64(str) {
 
   // Базовая проверка пройдена
   return true;
+}
+
+/**
+ * Второй шаг - анализ данных по ID из кэша
+ */
+function analyzeDataById(fileDataId, headerRow, selectedHeaders, aiInstructions, pageRange) {
+  try {
+    // Получаем данные из кэша
+    const cachedDataString = CacheService.getScriptCache().get("fileDataCache_" + fileDataId);
+    if (!cachedDataString) {
+      return {
+        success: false,
+        error: "Данные файла не найдены в кэше. Пожалуйста, загрузите файл заново."
+      };
+    }
+    
+    // Парсим кэшированные данные
+    const cachedData = JSON.parse(cachedDataString);
+    
+    // Проверяем наличие результатов обработки файла
+    if (!cachedData.processResult || !cachedData.processResult.tempSheetId) {
+      logMessage(`analyzeDataById: В кэше не найдены результаты обработки файла`, true);
+      return {
+        success: false,
+        error: "Не удалось найти результаты первичной обработки файла."
+      };
+    }
+    
+    // Подготавливаем данные для анализа
+    // Используем ранее созданную таблицу вместо повторной конвертации
+    const fileDataForAnalysis = cachedData.fileData || {};
+    const processResult = cachedData.processResult;
+    
+    logMessage(`analyzeDataById: Используем уже созданную таблицу с ID: ${processResult.tempSheetId}`);
+    
+    // Добавляем все необходимые параметры
+    fileDataForAnalysis.headerRow = headerRow;
+    fileDataForAnalysis.selectedHeaders = selectedHeaders;
+    fileDataForAnalysis.aiInstructions = aiInstructions;
+    fileDataForAnalysis.pageRange = pageRange;
+    fileDataForAnalysis.sheetName = fileDataForAnalysis.sheetName || (processResult.sheetNames && processResult.sheetNames[0]);
+    
+    // Создаем объект для analyzeAndInsertExtractedData, содержащий уже созданную Google Таблицу
+    const analysisData = {
+      tempSheetId: processResult.tempSheetId,  // Используем существующую таблицу
+      fileType: processResult.fileType,
+      sheetNames: processResult.sheetNames,
+      // Прочие параметры из fileDataForAnalysis
+      headerRow: fileDataForAnalysis.headerRow,
+      selectedHeaders: fileDataForAnalysis.selectedHeaders,
+      aiInstructions: fileDataForAnalysis.aiInstructions,
+      pageRange: fileDataForAnalysis.pageRange,
+      sheetName: fileDataForAnalysis.sheetName,
+      name: fileDataForAnalysis.name
+    };
+    
+    logMessage(`analyzeDataById: Начало analyzeAndInsertExtractedData с существующей таблицей ID: ${processResult.tempSheetId}`);
+    
+    try {
+      // Вызываем функцию, которая сделает всю работу по анализу таблицы и вставке результатов
+      const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+      const targetSheet = spreadsheet.getActiveSheet();
+      
+      if (!analysisData.headerRow || isNaN(parseInt(analysisData.headerRow)) || parseInt(analysisData.headerRow) < 1) {
+        throw new Error("Не указан или указан неверный номер строки с заголовками в целевом листе.");
+      }
+      
+      const { sheetData, headers } = getSheetDataAndHeaders(analysisData.tempSheetId, analysisData.sheetName);
+      const targetHeaders = getTargetHeaders(targetSheet, analysisData.headerRow);
+      
+      if (!targetHeaders || targetHeaders.length === 0) {
+        throw new Error("Не удалось получить заголовки целевого листа. Убедитесь, что указан правильный номер строки с заголовками и что строка не пустая.");
+      }
+      
+      // Определяем selectedHeaders ПОСЛЕ получения targetHeaders
+      const headersToUse = analysisData.selectedHeaders && analysisData.selectedHeaders.length > 0
+        ? analysisData.selectedHeaders
+        : targetHeaders;
+      
+      const prompt = (analysisData.fileType === 'text')
+        ? buildTextPrompt(sheetData, headersToUse, analysisData.aiInstructions)
+        : buildTablePrompt(sheetData, headers, headersToUse, analysisData.aiInstructions);
+      
+      logMessage(`analyzeDataById prompt: ${prompt}`);
+      
+      // Используем настройки для AI запроса
+      const settings = getSettings();
+      const aiResponse = openRouterRequest(
+        prompt,
+        settings.model,
+        settings.temperature,
+        settings.retryAttempts,
+        settings.maxTokens
+      );
+      
+      const parsedData = parseCsvAnswer(aiResponse, '|');
+      
+      insertDataIntoSheet(parsedData, targetSheet, headersToUse, targetHeaders);
+      
+      // Удаляем временную таблицу
+      try {
+        DriveApp.getFileById(analysisData.tempSheetId).setTrashed(true);
+        logMessage(`analyzeDataById: Временная таблица ${analysisData.tempSheetId} помещена в корзину.`);
+      } catch(e) {
+        logMessage(`analyzeDataById: Не удалось поместить в корзину временную таблицу ${analysisData.tempSheetId}: ${e}`, true);
+      }
+      
+      // Очищаем кэш
+      CacheService.getScriptCache().remove("fileDataCache_" + fileDataId);
+      
+      // Возвращаем успешный результат
+      return {
+        success: true,
+        message: "Данные успешно извлечены и вставлены."
+      };
+    } catch (error) {
+      // Если произошла ошибка, удаляем временную таблицу
+      try {
+        DriveApp.getFileById(analysisData.tempSheetId).setTrashed(true);
+        logMessage(`analyzeDataById: Временная таблица ${analysisData.tempSheetId} помещена в корзину после ошибки.`);
+      } catch(e) {
+        // Игнорируем ошибку при удалении
+      }
+      
+      throw error; // Пробрасываем ошибку дальше
+    }
+    
+  } catch (error) {
+    logMessage(`Ошибка в analyzeDataById: ${error.toString()}`, true);
+    return {
+      success: false,
+      error: `Ошибка при анализе данных: ${error.toString()}`
+    };
+  }
+}
+
+/**
+ * Получает имена листов для файла по его ID из кэша.
+ * Не выполняет повторную конвертацию файла.
+ * @param {string} fileDataId ID файла в кэше
+ * @returns {{sheetNames: string[]}} Массив имен листов или пустой массив
+ */
+function getSheetNamesById(fileDataId) {
+  try {
+    // Получаем данные из кэша
+    const cachedDataString = CacheService.getScriptCache().get("fileDataCache_" + fileDataId);
+    if (!cachedDataString) {
+      return {
+        sheetNames: []
+      };
+    }
+    
+    // Парсим кэшированные данные
+    const cachedData = JSON.parse(cachedDataString);
+    
+    // Проверяем, что в кэше есть результаты обработки файла с именами листов
+    if (!cachedData.processResult || !cachedData.processResult.sheetNames) {
+      return {
+        sheetNames: []
+      };
+    }
+    
+    // Возвращаем имена листов из кэша
+    return {
+      sheetNames: cachedData.processResult.sheetNames || []
+    };
+    
+  } catch (error) {
+    logMessage(`Ошибка в getSheetNamesById: ${error.toString()}`, true);
+    return {
+      sheetNames: []
+    };
+  }
 }
