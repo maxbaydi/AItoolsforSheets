@@ -6,7 +6,7 @@ function onOpen() {
     const dataMenu = ui.createMenu('Работа с данными')
         .addItem('Универсальный загрузчик', 'showUniversalUploader')
         .addItem('Извлечь данные', 'showExtractDataDialog') 
-        .addItem('Создать таблицу', 'showCreateTableSidebar');
+        .addItem('Суммировать данные', 'showSummarizeSidebar');
 
     // Меню для объединения ячеек
     const combineMenu = ui.createMenu('Объединить ячейки')
@@ -31,10 +31,15 @@ function onOpen() {
         .addItem('Настройки перевода', 'showTranslateDialog');
 
     // Меню для AI функций
-    const aiToolsMenu = ui.createMenu('AI инструменты')
+    const aiToolsMenu = ui.createMenu('Инструменты')
         .addItem('Заполнить ячейки', 'fillCells')
-        .addItem('Суммировать данные', 'showSummarizeSidebar')
+        .addItem('Создать таблицу', 'showCreateTableSidebar')
         .addItem('Генерировать текст', 'showGenerateTextSidebar');
+        
+    // Новое меню для работы с изображениями
+    const imageMenu = ui.createMenu('Изображения')
+        .addItem('🔍 Просмотреть изображение', 'viewLastImage')
+        .addItem('📋 Вставить изображение', 'showImagePasteDialog');
 
     // Главное меню
     ui.createMenu('AI Ассистент')
@@ -45,6 +50,16 @@ function onOpen() {
         .addSeparator()
         .addItem('⚙️ Настройки API', 'showApiKeyDialog')
         .addToUi();
+    
+    // Добавляем отдельное меню для изображений
+    imageMenu.addToUi();
+    
+    // Вызываем setupImageViewer() отдельно от создания меню
+    try {
+        setupImageViewer();
+    } catch (e) {
+        console.error("Ошибка при настройке просмотрщика изображений:", e);
+    }
 }
 
 function showUniversalUploader() {
@@ -113,4 +128,12 @@ function getTargetHeadersFromServer(headerRow) {
   } catch (e) {
     return [];
   }
+}
+
+// Показывает диалог вставки изображения
+function showImagePasteDialog() {
+  const html = HtmlService.createHtmlOutputFromFile('ImagePasteDialog')
+      .setWidth(800)
+      .setHeight(600);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Вставить изображение');
 }

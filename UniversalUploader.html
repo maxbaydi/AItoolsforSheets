@@ -789,7 +789,23 @@
        <input type="text" id="template-name-input" placeholder="Имя нового шаблона">
         <button onclick="saveTemplate()" class="custom-button template-button">Сохранить</button>
       </div>
+      <!-- Разделитель после блока шаблонов -->
+      <div style="border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 10px; margin-bottom: 10px;"></div>
    </div>
+   
+   <div class="insert-mode-container" style="display: flex; align-items: center; margin-bottom: 10px;">
+      <label style="flex: 1; font-size: 12px;">Режим вставки:</label>
+      <button id="insert-mode-button" onclick="toggleInsertMode()" class="custom-button template-button" style="min-width: 100px;">По строке</button>
+   </div>
+  <!--
+  <div class="tooltip" style="width: 100%; text-align: center; font-size: 10px; color: var(--text-color-sub); margin-bottom: 10px;">
+    <span>По строке — данные добавляются после последней занятой строки таблицы</span><br>
+    <span>По столбцу — данные добавляются отдельно для каждого столбца после его последней занятой ячейки</span>
+  </div>
+  -->
+   
+   <!-- Разделитель для режима вставки -->
+   <div style="border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 10px; margin-bottom: 10px;"></div>
 
   <div class="button-container">
     <button onclick="extractData()" id="extract-button" class="custom-button" disabled data-tooltip="Начинает процесс извлечения данных из загруженного файла.
@@ -857,7 +873,7 @@
         document.getElementById('page-range-option').style.display = 'none'; // Используем ID
         document.getElementById('file-name-label').textContent = '';
         document.getElementById('extract-button').disabled = true;
-        document.getElementById('clear-button').disabled = true;
+        document.getElementById('clear-button').disabled = false;
         document.getElementById('advanced-settings').classList.remove('hidden');
         document.getElementById('template-name-input').value = ''; // Очищаем имя шаблона
         document.getElementById('template-select').value = ''; // Сбрасываем выбор шаблона
@@ -1062,6 +1078,8 @@
     const pageRange = document.getElementById('page-range-option').style.display !== 'none'
                      ? document.getElementById('page-range-input').value.trim()
                      : null;
+    // Получаем режим вставки из переключателя
+    const byColumn = document.getElementById('insert-mode-button').textContent === 'По столбцу';
 
     saveSettingsToSession();
 
@@ -1069,7 +1087,7 @@
     clearMessages();
 
     try {
-        // Используем второй этап - анализ данных по ID из кэша
+        // Используем второй этап - анализ данных по ID из кэша, передавая режим вставки
         const result = await new Promise((resolve, reject) => {
             google.script.run
                 .withSuccessHandler(resolve)
@@ -1079,7 +1097,8 @@
                     headerRow,
                     selectedHeaders,
                     aiInstructions,
-                    pageRange
+                    pageRange,
+                    byColumn // Передаем режим вставки
                 );
         });
 
@@ -1239,6 +1258,8 @@
        sessionStorage.setItem('headerRow', document.getElementById('header-row-input').value);
        sessionStorage.setItem('aiInstructions', document.getElementById('ai-instructions').value);
        sessionStorage.setItem('pageRange', document.getElementById('page-range-input').value);
+       // Сохраняем режим вставки
+       sessionStorage.setItem('insertMode', document.getElementById('insert-mode-button').textContent === 'По столбцу' ? 'byColumn' : 'byRow');
    }
 
     function loadSettingsFromSession() {
@@ -1254,10 +1275,11 @@
         if (sessionPageRange) {
             document.getElementById('page-range-input').value = sessionPageRange;
         }
-        // Убираем авто-вызов загрузки заголовков
-        // if (sessionHeaderRow) {
-        //     loadTargetHeaders(false);
-        // }
+        // Загружаем режим вставки
+        const insertMode = sessionStorage.getItem('insertMode');
+        if (insertMode) {
+            document.getElementById('insert-mode-button').textContent = (insertMode === 'byColumn') ? 'По столбцу' : 'По строке';
+        }
     }
 
   function saveTemplate() {
@@ -1433,6 +1455,13 @@ function populateTemplateSelect() {
        const button = document.getElementById('toggle-headers-button');
        const isExpanded = headersContainer.classList.toggle('expanded');
        button.textContent = isExpanded ? 'Скрыть столбцы' : 'Показать столбцы';
+   }
+
+   function toggleInsertMode() {
+       const button = document.getElementById('insert-mode-button');
+       const currentMode = button.textContent;
+       button.textContent = currentMode === 'По строке' ? 'По столбцу' : 'По строке';
+       saveSettingsToSession();
    }
 
   // Оптимизированная функция генерации ключа кэша

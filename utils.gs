@@ -1,23 +1,40 @@
-// Вспомогательные функции
-function logMessage(message, isError = false) {
-    if (!message || typeof message !== 'string') {
-        throw new Error('Сообщение для логирования должно быть непустой строкой');
-    }
+/**
+ * Записывает сообщение в лог с отметкой времени
+ * @param {string} message - сообщение для записи в лог
+ * @param {boolean} isError - флаг ошибки (по умолчанию false)
+ * @param {number} level - уровень детализации лога (1-5, где 5 - максимальная детализация)
+ */
+function logMessage(message, isError = false, level = 3) {
+  try {
+    const timestamp = new Date().toLocaleString('ru-RU');
+    const logType = isError ? '[ОШИБКА]' : '[ИНФО]';
+    const fullMessage = `${timestamp} ${logType} ${message}`;
     
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    let logSheet = spreadsheet.getSheetByName(LOG_SHEET_NAME);
+    // Получаем текущие настройки логирования
+    const properties = PropertiesService.getScriptProperties();
+    const logLevel = parseInt(properties.getProperty('LOG_LEVEL') || '3');
     
-    // Если лист логов не существует, создаем его и сразу скрываем
-    if (!logSheet) {
-        logSheet = spreadsheet.insertSheet(LOG_SHEET_NAME);
-        logSheet.hideSheet(); // Скрываем лист
+    // Записываем сообщение только если его уровень не превышает настроенный уровень логирования
+    if (level <= logLevel) {
+      console.log(fullMessage);
+      
+      // Также записываем в таблицу логов, если включено
+      const sheet = SpreadsheetApp.getActiveSpreadsheet();
+      if (sheet) {
+        // Используем оригинальное имя листа и делаем его скрытым
+        let logsSheet = sheet.getSheetByName('__AI_LOGS__');
+        if (!logsSheet) {
+          // Создаем скрытый лист для логов
+          logsSheet = sheet.insertSheet('__AI_LOGS__');
+          logsSheet.hideSheet();
+        }
+        logsSheet.appendRow([timestamp, message, isError]);
+      }
     }
-    
-    if (logSheet.getLastRow() === 0) {
-        logSheet.appendRow(["Время", "Сообщение", "Ошибка"]);
-        logSheet.setFrozenRows(1);
-    }
-    logSheet.appendRow([new Date(), message, isError]);
+  } catch (e) {
+    // Если возникла ошибка при логировании, выводим в консоль
+    console.log(`Ошибка логирования: ${e.toString()}`);
+  }
 }
 
 function calculateMD5(input) {
@@ -90,4 +107,40 @@ function checkAvailableServices() {
     services["Drive API Version"] = driveApiVersion;
     
     return services;
+}
+
+/**
+ * Грубо оценивает количество токенов в тексте
+ * Оценка основана на предположении, что 1 токен ≈ 4 символа для латиницы и 
+ * примерно 2-3 символа для кириллицы
+ * @param {string} text - Текст для оценки
+ * @returns {number} - Приблизительное количество токенов
+ */
+function estimateTokenCount(text) {
+  if (!text) return 0;
+  
+  // Разделяем текст на части с латиницей и кириллицей
+  const latinChars = (text.match(/[a-zA-Z0-9.,;:?!()\[\]{}"'`~@#$%^&*_+=<>|\\/-]/g) || []).length;
+  const cyrillicChars = (text.match(/[а-яА-ЯёЁ]/g) || []).length;
+  const otherChars = text.length - latinChars - cyrillicChars;
+  
+  // Используем разные коэффициенты для разных алфавитов
+  // Для латиницы примерно 4 символа на токен
+  // Для кириллицы примерно 2-3 символа на токен (берем 2.5)
+  // Для других символов примерно 3 символа на токен
+  const latinTokens = latinChars / 4.0;
+  const cyrillicTokens = cyrillicChars / 2.5;
+  const otherTokens = otherChars / 3.0;
+  
+  // Учитываем пробелы и переносы строк
+  const whitespaceChars = (text.match(/\s+/g) || []).join('').length;
+  const whitespaceTokens = whitespaceChars / 5.0; // Примерно 5 пробелов на токен
+  
+  // Получаем общее количество токенов и округляем до целого
+  const totalTokens = Math.ceil(latinTokens + cyrillicTokens + otherTokens + whitespaceTokens);
+  
+  // Для больших текстов добавляем небольшой запас на сложность контекста
+  const complexityFactor = Math.min(1.1, 1 + (text.length / 100000) * 0.1);
+  
+  return Math.ceil(totalTokens * complexityFactor);
 }

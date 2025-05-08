@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --background-color: #f0f4f8;
+            --primary-color-1: #ffffff;
+            --primary-color-2: #e0e0e0;
+            --primary-color-3: #2196f3;
+            --text-color: #555555;
+            --text-color-headline: #222222;
+            --text-color-sub: #777777;
+            --button-text-color: #ffffff;
+            --border-color: #e0e0e0;
+            --error-color: #d32f2f;
+            --success-color: #4CAF50;
+            --button-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            --button-hover-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            --drop-area-bg: rgba(240, 244, 248, 0.7);
+            --drop-area-border: #2196f3;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: flex-start;
+        }
+        
+        h1 {
+            color: var(--text-color-headline);
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .container {
+            background-color: var(--primary-color-1);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 800px;
+            box-sizing: border-box;
+            margin: 0 auto;
+        }
+        
+        #drop-area {
+            border: 2px dashed var(--drop-area-border);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            background-color: var(--drop-area-bg);
+            margin: 15px 0;
+            cursor: pointer;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        #drop-area.drag-over {
+            background-color: rgba(33, 150, 243, 0.1);
+            border-color: var(--primary-color-3);
+            transform: scale(1.01);
+        }
+        
+        #drop-area .icon {
+            font-size: 48px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        .instructions {
+            color: var(--text-color-sub);
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+        
+        .shortcut {
+            display: inline-block;
+            padding: 2px 5px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .message {
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 4px;
+            display: none;
+            word-wrap: break-word;
+        }
+        
+        .message.visible {
+            display: block;
+        }
+        
+        .message.error {
+            background-color: #fde0e0;
+            color: var(--error-color);
+            border: 1px solid #fccaca;
+        }
+        
+        .message.success {
+            background-color: #e6f4ea;
+            color: var(--success-color);
+            border: 1px solid #c8e6c9;
+        }
+        
+        .progress-indicator {
+            display: none;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .progress-indicator.visible {
+            display: block;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(33, 150, 243, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color-3);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        .custom-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: var(--primary-color-3);
+            color: var(--button-text-color);
+            font-weight: 500;
+            transition: all 0.2s ease;
+            min-width: 100px;
+        }
+        
+        .custom-button:hover:not(:disabled) {
+            background-color: #1976d2;
+            box-shadow: var(--button-hover-shadow);
+        }
+        
+        .custom-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .custom-button.close {
+            background-color: #757575;
+        }
+        
+        #preview-container {
+            margin-top: 15px;
+            text-align: center;
+            max-height: 300px;
+            overflow: hidden;
+            display: none;
+        }
+        
+        #image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Вставить изображение</h1>
+        
+        <div class="instructions">
+            Вставьте изображение одним из способов:
+        </div>
+        
+        <div id="drop-area" title="Нажмите для выбора файла или перетащите изображение сюда">
+            <div class="icon">📷</div>
+            <div>Перетащите изображение сюда</div>
+            <div>или нажмите для выбора файла</div>
+            <div class="instructions">или нажмите <span class="shortcut">Ctrl+V</span> для вставки из буфера обмена</div>
+        </div>
+        
+        <input type="file" id="file-input" accept="image/*">
+        
+        <div id="preview-container">
+            <img id="image-preview" alt="Preview">
+        </div>
+        
+        <div id="error-message" class="message error"></div>
+        <div id="status-message" class="message success"></div>
+        
+        <div class="progress-indicator">
+            <span class="spinner"></span>
+            <span>Загрузка...</span>
+        </div>
+        
+        <div class="button-container">
+            <button id="insert-button" class="custom-button" disabled>Вставить</button>
+            <button id="close-button" class="custom-button close">Закрыть</button>
+        </div>
+    </div>
+    
+    <script>
+        // Переменные для хранения данных изображения
+        let imageData = null;
+        let imageFile = null;
+        
+        // Получаем DOM элементы
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('file-input');
+        const insertButton = document.getElementById('insert-button');
+        const closeButton = document.getElementById('close-button');
+        const previewContainer = document.getElementById('preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        
+        // Инициализация обработчиков событий
+        function init() {
+            // Обработчики для drag and drop
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                dropArea.classList.add('drag-over');
+            }
+            
+            function unhighlight() {
+                dropArea.classList.remove('drag-over');
+            }
+            
+            // Обработчик перетаскивания файлов
+            dropArea.addEventListener('drop', handleDrop, false);
+            
+            // Обработчик клика по зоне
+            dropArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // Обработчик выбора файла
+            fileInput.addEventListener('change', handleFileSelect, false);
+            
+            // Обработчик вставки из буфера обмена
+            document.addEventListener('paste', handlePaste, false);
+            
+            // Обработчики кнопок
+            insertButton.addEventListener('click', insertImage);
+            closeButton.addEventListener('click', closeDialog);
+            
+            // Захватываем фокус для возможности вставки из буфера сразу после открытия
+            window.addEventListener('load', () => {
+                document.body.focus();
+            });
+        }
+        
+        // Обработка перетаскивания файлов
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                handleFiles(files);
+            }
+        }
+        
+        // Обработка выбора файлов через диалог
+        function handleFileSelect(e) {
+            if (fileInput.files.length > 0) {
+                handleFiles(fileInput.files);
+            }
+        }
+        
+        // Обработка вставки из буфера обмена
+        function handlePaste(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') === 0) {
+                    const blob = items[i].getAsFile();
+                    handleFiles([blob]);
+                    break;
+                }
+            }
+        }
+        
+        // Обработка файлов
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            
+            const file = files[0];
+            
+            // Проверяем, что это изображение
+            if (!file.type.match('image.*')) {
+                showMessage('Выбранный файл не является изображением', 'error');
+                return;
+            }
+            
+            // Проверяем размер файла (ограничение в 5 МБ)
+            const maxSize = 5 * 1024 * 1024; // 5 МБ
+            if (file.size > maxSize) {
+                showMessage(`Размер файла превышает 5 МБ (${(file.size / 1024 / 1024).toFixed(2)} МБ)`, 'error');
+                return;
+            }
+            
+            // Сохраняем файл
+            imageFile = file;
+            
+            // Показываем превью
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imageData = e.target.result;
+                imagePreview.src = imageData;
+                previewContainer.style.display = 'block';
+                insertButton.disabled = false;
+                
+                showMessage('Изображение готово к вставке', 'success');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Вставка изображения в ячейку
+        function insertImage() {
+            if (!imageData) {
+                showMessage('Нет изображения для вставки', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            
+            // Передаем данные изображения в Google Apps Script
+            google.script.run
+                .withSuccessHandler(onSuccess)
+                .withFailureHandler(onError)
+                .insertImageToActiveCell(imageData, imageFile.name, imageFile.type);
+        }
+        
+        // Обработка успешной вставки
+        function onSuccess(response) {
+            if (response.success) {
+                showMessage('Изображение успешно вставлено', 'success');
+                setTimeout(closeDialog, 1000); // Закрываем диалог через 1 секунду после успешной вставки
+            } else {
+                showMessage(`Ошибка: ${response.error || 'Неизвестная ошибка'}`, 'error');
+            }
+            setLoading(false);
+        }
+        
+        // Обработка ошибки вставки
+        function onError(error) {
+            showMessage(`Ошибка: ${error.message || error || 'Неизвестная ошибка'}`, 'error');
+            setLoading(false);
+        }
+        
+        // Закрытие диалога
+        function closeDialog() {
+            google.script.host.close();
+        }
+        
+        // Управление индикатором загрузки
+        function setLoading(isLoading) {
+            const progressIndicator = document.querySelector('.progress-indicator');
+            insertButton.disabled = isLoading;
+            closeButton.disabled = isLoading;
+            
+            if (progressIndicator) {
+                progressIndicator.classList.toggle('visible', isLoading);
+            }
+        }
+        
+        // Показ сообщений
+        function showMessage(message, type = 'status') {
+            const errorElement = document.getElementById('error-message');
+            const statusElement = document.getElementById('status-message');
+            
+            errorElement.classList.remove('visible');
+            statusElement.classList.remove('visible');
+            
+            if (type === 'error') {
+                errorElement.textContent = message;
+                errorElement.classList.add('visible');
+            } else {
+                statusElement.textContent = message;
+                statusElement.classList.add('visible');
+            }
+            
+            // Автоматически скрываем сообщение через 5 секунд
+            setTimeout(() => {
+                if (type === 'error') {
+                    errorElement.classList.remove('visible');
+                } else {
+                    statusElement.classList.remove('visible');
+                }
+            }, 5000);
+        }
+        
+        // Вызываем инициализацию
+        init();
+    </script>
+</body>
+</html>
+

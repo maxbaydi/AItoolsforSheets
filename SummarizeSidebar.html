@@ -14,7 +14,7 @@
             --text-color-sub: #777777;
             --button-text-color: #ffffff;
             --border-color: #e0e0e0;
-            --drop-area-border: #e0e0e0;
+            --drop-area-border: #cccccc; 
             --drop-area-bg: #ffffff;
         }
         body {
@@ -316,6 +316,84 @@
             visibility: visible;
         }
         
+        /* Стили для drop-area */
+        #drop-area {
+            border: 2px dashed var(--drop-area-border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            text-align: center;
+            background-color: var(--drop-area-bg);
+            cursor: pointer;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s ease-in-out;
+            font-size: 12px;
+            color: var(--text-color-sub);
+        }
+        
+        #drop-area > div {
+            margin-bottom: 3px;
+        }
+        
+        #drop-area:hover {
+            border-color: var(--primary-color-3);
+            background-color: rgba(240, 244, 248, 0.8);
+        }
+        
+        #drop-area.drag-over {
+            border-color: var(--primary-color-3);
+            background-color: rgba(240, 244, 248, 0.8);
+        }
+        
+        .file-info {
+            font-size: 0.85em;
+            color: var(--text-color-sub);
+            margin-top: 2px;
+        }
+        
+        .file-name-label {
+            font-size: 0.9em;
+            color: var(--text-color);
+            margin-top: 5px;
+            word-break: break-all;
+            font-weight: 500;
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        /* Стили для списка файлов */
+        .files-list {
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-color);
+        }
+        
+        .files-list > div {
+            padding: 5px 8px;
+            margin-bottom: 5px;
+            background-color: rgba(33, 150, 243, 0.1);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .files-list > div > span {
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        
+        .files-list > div > span:hover {
+            opacity: 1;
+        }
+        
         /* Удаляем стили для элементов триального периода */
         #trialBanner {
             display: none;
@@ -324,61 +402,49 @@
 </head>
 <body>
 <div class="container">
-    <div class = "input-group tooltip">
+    <div class = "input-group">
         <label for="textToSummarize">Текст для суммаризации:</label>
         <div class="input-row" style="position: relative;">
-            <textarea id="textToSummarize" placeholder="Введите текст или выделите диапазон" class="tooltip"></textarea>
-            <span class="tooltiptext">Введите текст для создания краткого содержания или выделите диапазон ячеек. AI создаст сжатое изложение, сохранив ключевые моменты и основную суть текста.</span>
+            <textarea id="textToSummarize" placeholder="Введите текст или выделите диапазон"></textarea>
             <div style="position: absolute; bottom: -25px; left: 0; display: flex;">
-                <button id="copyInputTextButton" class="icon-button tooltip" onclick="copyInput()">
+                <button id="copyInputTextButton" class="icon-button" onclick="copyInput()">
                     <span style="font-size: 1em;">📋</span>
-                    <span class="tooltiptext">Копировать введенный текст</span>
                 </button>
-                <button id="clearInputTextButton" class="icon-button tooltip" onclick="clearInput(false)">
+                <button id="clearInputTextButton" class="icon-button" onclick="clearInput(false)">
                     <span style="font-size: 1em;">❌</span>
-                    <span class="tooltiptext">Очистить поле ввода</span>
                 </button>
             </div>
         </div>
     </div>
-    <div class="input-group tooltip">
-        <label>Загрузить файл для суммаризации:</label>
-        <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.txt,.ods,.docx,.doc">
-        <div id="drop-area" data-tooltip="Перетащите файл сюда или кликните для выбора.
-Поддерживаемые форматы:
-• Excel (.xlsx, .xls)
-• Word (.docx, .doc)
-• CSV
-• TXT
-• ODS
-Максимальный размер файла: 10MB">
-            <div>Перетащите файл сюда</div>
-            <div class="file-info">или нажмите для выбора</div>
-            <div class="file-name-label" id="file-name-label"></div>
+    <div class="input-group">
+        <label>Загрузить файлы для суммаризации:</label>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.txt,.ods,.docx,.doc" multiple>
+        <div id="drop-area">
+            <div>Файлы не выбраны</div>
+            <div class="file-info">Перетащите файлы сюда или нажмите для выбора</div>
         </div>
+        <div id="files-list" class="files-list"></div>
     </div>
-    <div class = "input-group tooltip">
+    <div class="input-group">
         <label for="temperature">Температура (необязательно):</label>
         <input type="number" id="temperature" step="0.01" min="0" max="1" placeholder="По умолчанию: из настроек">
-        <span class="tooltiptext">Влияет на креативность ответа. От 0 (более точный) до 1 (более творческий)</span>
     </div>
     <div id="buttonContainer">
-        <button onclick="summarize()" class = "custom-button tooltip">
-            <span style="margin-right: 6px;">⚡</span> Суммировать
-            <span class="tooltiptext">Начать процесс суммаризации текста</span>
+        <button id="summarizeButton" class="custom-button" style="background-color: #2196f3; width: 100%; padding: 12px; font-size: 14px; text-transform: uppercase; font-weight: bold;">
+            <span style="margin-right: 6px;">⚡</span> Начать<br>суммирование текста
         </button>
         <div style="display: flex; margin-left: 0; align-items: center;">
-            <button onclick="insertResult()" id="insertButton" class="icon-button tooltip"  title="Вставить результат" style="margin-left: 0; display: none;">
+            <button onclick="insertResult()" id="insertButton" class="icon-button" title="Вставить текст (обычный)" style="margin-left: 0; display: none;">
                 <span style="font-size: 1em;">✅</span>
-                <span class="tooltiptext">Вставить результат в активную ячейку</span>
             </button>
-            <button id="copyResultButton" class="icon-button tooltip" onclick="copyResult()" title="Копировать результат" style="display: none;">
+            <button onclick="insertFormattedResult()" id="insertFormattedButton" class="icon-button" title="Вставить текст с форматированием" style="margin-left: 0; display: none;">
+                <span style="font-size: 1em;">📝</span>
+            </button>
+            <button id="copyResultButton" class="icon-button" onclick="copyResult()" title="Копировать результат" style="display: none;">
                 <span style="font-size: 1em;">📋</span>
-                <span class="tooltiptext">Копировать результат в буфер обмена</span>
             </button>
-            <button id="clearResultButton" class="icon-button tooltip" onclick="clearInput(true)" title="Очистить результат" style="display: none;">
+            <button id="clearResultButton" class="icon-button" onclick="clearInput(true)" title="Очистить результат" style="display: none;">
                 <span style="font-size: 1em;">❌</span>
-                <span class="tooltiptext">Очистить результат</span>
             </button>
         </div>
     </div>
@@ -422,51 +488,94 @@
         } else {
             temperature = null;
         }
-        const progressIndicator = document.querySelector('.progress-indicator');
-        progressIndicator.classList.add('visible');
+
         if (!textToSummarize) {
             try {
+                // Показываем спиннер с текстом о извлечении данных из диапазона
+                toggleSpinner(true, "Извлечение данных из диапазона...");
+                
                 const selectedText = await google.script.run.withSuccessHandler(rangeText => {
                     if (!rangeText) {
                         throw new Error('Выделите диапазон ячеек или введите текст');
                     }
-                    progressIndicator.classList.remove('visible');
+                    // Скрываем спиннер перед вызовом summarizeText, так как там свой спиннер
+                    toggleSpinner(false);
                     summarizeText(rangeText, temperature);
                 }).withFailureHandler(error => {
+                    toggleSpinner(false);
                     showMessage(error.message, 'error');
                 }).getSelectedRangeText();
             } catch (error) {
+                toggleSpinner(false);
                 showMessage(error.message, 'error');
-                progressIndicator.classList.remove('visible');
                 return;
             }
         } else {
-            progressIndicator.classList.remove('visible');
+            // Для текста в поле ввода сразу переходим к summarizeText
             summarizeText(textToSummarize, temperature);
         }
     }
     function summarizeText(text, temperature) {
+        // Показываем индикатор прогресса с текстом о резюмировании данных
+        toggleSpinner(true, "Идет резюмирование данных...");
+        
         google.script.run
             .withSuccessHandler(result => {
-                // Очищаем и нормализуем текст перед вставкой
+                // Изменяем текст индикатора для отображения статуса парсинга
+                toggleSpinner(true, "Парсим ответ...");
+                
+                // Очищаем текст от лишних специальных символов, но сохраняем разметку markdown
                 const normalizedText = result
                     .replace(/\r\n/g, '\n')
                     .replace(/\r/g, '\n')
-                    .replace(/\n{3,}/g, '\n\n')
-                    .replace(/\s+/g, ' ')
                     .trim();
                 
-                document.getElementById('result-container').innerHTML = normalizedText;
+                // Применяем marked для преобразования markdown в HTML
+                try {
+                    // Настраиваем параметры marked
+                    marked.setOptions({
+                        breaks: true, // Преобразовывать переносы строк в <br>
+                        gfm: true,    // Использовать GitHub Flavored Markdown
+                        headerIds: false, // Не добавлять id к заголовкам
+                        mangle: false  // Не экранировать HTML
+                    });
+                    
+                    // Преобразуем markdown в HTML и вставляем в контейнер
+                    const htmlContent = marked.parse(normalizedText);
+                    document.getElementById('result-container').innerHTML = htmlContent;
+                    document.getElementById('result-container').setAttribute('data-markdown', normalizedText);
+                    
+                    // Если есть ссылки, открываем их в новом окне
+                    const links = document.getElementById('result-container').querySelectorAll('a');
+                    links.forEach(link => {
+                        link.setAttribute('target', '_blank');
+                        link.setAttribute('rel', 'noopener noreferrer');
+                    });
+                } catch (markdownError) {
+                    // Если что-то пошло не так с рендерингом markdown, используем обычный текст
+                    console.error('Ошибка рендеринга Markdown:', markdownError);
+                    document.getElementById('result-container').innerText = normalizedText;
+                }
+                
+                // Скрываем спиннер после завершения парсинга
+                toggleSpinner(false);
+                
+                // Показываем элементы управления
                 const insertButton = document.getElementById('insertButton');
                 insertButton.style.display = 'block';
+                const insertFormattedButton = document.getElementById('insertFormattedButton');
+                insertFormattedButton.style.display = 'block';
                 const clearResultButton = document.getElementById('clearResultButton');
                 clearResultButton.style.display = 'block';
                 const copyResultButton = document.getElementById('copyResultButton');
                 copyResultButton.style.display = 'flex';
                 document.getElementById('result-container').classList.add('show');
+                
                 showMessage('Текст суммирован', 'success');
             })
             .withFailureHandler(error => {
+                // Скрываем индикатор прогресса в случае ошибки
+                toggleSpinner(false);
                 showMessage(error.message, 'error');
             })
             .summarizeText(text, temperature);
@@ -490,12 +599,28 @@
             })
             .insertTextIntoActiveCell(normalizedText);
     }
+    function insertFormattedResult() {
+        // Получаем оригинальный результат с разметкой markdown
+        const markdownText = document.getElementById('result-container').getAttribute('data-markdown') || 
+                            document.getElementById('result-container').innerText;
+                            
+        google.script.run
+            .withSuccessHandler(() => {
+                showMessage('Форматированный текст вставлен в активную ячейку', 'success');
+            })
+            .withFailureHandler(error => {
+                showMessage(error.message, 'error');
+            })
+            .insertFormattedTextIntoActiveCell(markdownText);
+    }
     function clearInput(isAfterSummarize = false) {
         if (isAfterSummarize) {
             document.getElementById('result-container').innerHTML = '';
             document.getElementById('result-container').classList.remove('show');
             const insertButton = document.getElementById('insertButton');
             insertButton.style.display = 'none';
+            const insertFormattedButton = document.getElementById('insertFormattedButton');
+            insertFormattedButton.style.display = 'none';
             const clearResultButton = document.getElementById('clearResultButton');
             clearResultButton.style.display = 'none';
             const copyResultButton = document.getElementById('copyResultButton');
@@ -504,7 +629,7 @@
             document.getElementById('textToSummarize').value = '';
             document.getElementById('temperature').value = '';
             currentFile = null;
-            document.getElementById('file-name-label').textContent = '';
+            document.getElementById('files-list').innerHTML = '';
             document.getElementById('file-input').value = '';
         }
         clearMessages();
@@ -528,15 +653,208 @@
         });
     }
 
-    // Инициализация shared тултипов и загрузка температуры из настроек
+    // Функция для изменения текста в спиннере
+    function setSpinnerText(text) {
+        const progressIndicator = document.querySelector('.progress-indicator');
+        const textNode = progressIndicator.childNodes[1]; // Получаем текстовый узел после спиннера
+        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+            textNode.nodeValue = text;
+        } else {
+            // Если текстового узла нет, добавляем его
+            const spinnerElement = progressIndicator.querySelector('.spinner');
+            if (spinnerElement) {
+                spinnerElement.nextSibling.nodeValue = text;
+            }
+        }
+    }
+    
+    // Функция для показа/скрытия спиннера с указанным текстом
+    function toggleSpinner(show, text = 'Обработка...') {
+        const progressIndicator = document.querySelector('.progress-indicator');
+        if (show) {
+            setSpinnerText(text);
+            progressIndicator.classList.add('visible');
+        } else {
+            progressIndicator.classList.remove('visible');
+        }
+    }
+
+    // Инициализация и загрузка температуры из настроек
     document.addEventListener('DOMContentLoaded', () => {
-        setupTooltips();
         // Загрузка температуры из настроек
         google.script.run.withSuccessHandler(temp => {
             if (temp !== null) document.getElementById('temperature').value = temp;
         }).getTemperatureFromClient();
+
+        // Инициализация обработчиков drag-and-drop
+        initializeDropArea();
+        
+        // Добавляем обработчик на кнопку суммаризации
+        document.getElementById('summarizeButton').addEventListener('click', summarize);
+        
+        console.log('SummarizeSidebar initialized!');
     });
+
+    // Переменная для хранения текущих файлов
+    let currentFiles = [];
+
+    // Инициализация обработчиков для drop-area
+    function initializeDropArea() {
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('file-input');
+        
+        // Предотвращаем стандартное поведение для drag-and-drop событий
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        // Добавляем визуальные эффекты при перетаскивании
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.style.border = '2px dashed #2196f3';
+                dropArea.style.backgroundColor = 'rgba(240, 244, 248, 0.8)';
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.style.border = '2px dashed #e0e0e0';
+                dropArea.style.backgroundColor = '#ffffff';
+            }, false);
+        });
+        
+        // Обрабатываем событие drop
+        dropArea.addEventListener('drop', handleDrop, false);
+        
+        // Активируем выбор файла при клике на drop-area
+        dropArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Обрабатываем выбор файла через стандартный диалог
+        fileInput.addEventListener('change', handleFileSelect);
+    }
+
+    // Обработка выбора файлов через стандартный диалог
+    function handleFileSelect(e) {
+        if (e.target.files.length > 0) {
+            const files = Array.from(e.target.files);
+            processSelectedFiles(files);
+        }
+    }
+
+    // Обработка перетаскивания файлов
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = Array.from(dt.files);
+        processSelectedFiles(files);
+    }
+
+    // Обработка выбранных файлов
+    function processSelectedFiles(files) {
+        const validFiles = files.filter(file => isValidFileType(file) && isValidFileSize(file));
+        const invalidFiles = files.filter(file => !isValidFileType(file) || !isValidFileSize(file));
+        
+        if (invalidFiles.length > 0) {
+            const invalidFileNames = invalidFiles.map(file => file.name).join(', ');
+            showMessage(`Некоторые файлы не поддерживаются или слишком большие: ${invalidFileNames}`, 'error');
+        }
+        
+        currentFiles = validFiles;
+        updateFilesList();
+        
+        if (currentFiles.length > 0) {
+            document.getElementById('textToSummarize').value = ''; // Очищаем текстовое поле
+            uploadFilesForSummarize(currentFiles);
+        }
+    }
+
+    // Обновление списка файлов
+    function updateFilesList() {
+        const filesListElement = document.getElementById('files-list');
+        filesListElement.innerHTML = currentFiles.map(file => `<div>${file.name}</div>`).join('');
+    }
+
+    // Проверка допустимого типа файла
+    function isValidFileType(file) {
+        const supportedTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+            'application/vnd.ms-excel', // .xls
+            'text/csv', // .csv
+            'text/plain', // .txt
+            'application/vnd.oasis.opendocument.spreadsheet', // .ods
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+            'application/msword' // .doc
+        ];
+        
+        // Проверяем тип MIME или расширение файла
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        const validExtensions = ['xlsx', 'xls', 'csv', 'txt', 'ods', 'docx', 'doc'];
+        
+        return supportedTypes.includes(file.type) || validExtensions.includes(fileExtension);
+    }
+
+    // Проверка допустимого размера файла
+    function isValidFileSize(file) {
+        const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
+        return file.size <= maxSizeInBytes;
+    }
+
+    // Чтение файла как base64 данных
+    function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+            reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Загрузка файлов для суммаризации
+    async function uploadFilesForSummarize(files) {
+        clearMessages();
+        // Показываем индикатор с текстом о обработке файлов
+        toggleSpinner(true, "Идет обработка файлов...");
+        
+        try {
+            const fileDataArray = await Promise.all(files.map(async file => {
+                const base64Data = await readFileAsDataURL(file);
+                return {
+                    name: file.name,
+                    type: file.type,
+                    data: base64Data
+                };
+            }));
+            
+            const result = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler(resolve)
+                    .withFailureHandler(reject)
+                    .extractTextFromFiles(fileDataArray);
+            });
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Ошибка при обработке файлов');
+            }
+            
+            // Вставляем извлеченный текст в поле для суммаризации
+            document.getElementById('textToSummarize').value = result.text;
+            showMessage('Текст извлечен из файлов', 'success');
+            
+        } catch (error) {
+            showMessage(error.message || 'Ошибка при обработке файлов', 'error');
+        } finally {
+            // Скрываем индикатор после завершения обработки
+            toggleSpinner(false);
+        }
+    }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="shared.js"></script>
 </body>
 </html>

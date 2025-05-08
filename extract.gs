@@ -216,3 +216,197 @@ function getSelectedRangeA1Notation() {
     }
     return range.getA1Notation();
 }
+
+/**
+ * Суммаризирует предоставленный текст, сохраняя базовое форматирование
+ * @param {string} text Текст для суммаризации
+ * @param {number} temperature Температура для генерации (опционально)
+ * @returns {string} Суммаризированный текст с сохраненным форматированием
+ */
+function summarizeText(text, temperature) {
+    try {
+        if (!text || text.trim() === "") {
+            throw new Error("Нет текста для суммаризации");
+        }
+
+        // Получаем настройки из свойств скрипта
+        const settings = getSettings();
+        const model = settings.model;
+        const temp = temperature !== undefined && temperature !== null ? temperature : settings.temperature;
+        const maxTokens = settings.maxTokens;
+        const maxRetries = settings.retryAttempts;
+
+        // Строим промпт для подсчета токенов
+        const prompt = buildSummarizePromptWithFormatting(text);
+        
+        // Оцениваем количество токенов в тексте и промпте
+        const promptTokens = estimateTokenCount(prompt);
+        const textTokens = estimateTokenCount(text);
+        
+        // Проверяем, не превышает ли количество токенов максимально допустимое значение
+        if (promptTokens > maxTokens) {
+            throw new Error(`В полученном тексте слишком много символов (${textTokens} токенов в тексте + ${promptTokens - textTokens} токенов в промпте = ${promptTokens} токенов), чем максимально возможное (${maxTokens} токенов)`);
+        }
+        
+        logMessage(`summarizeText prompt: ${prompt.substring(0, 200)}... [Примерно ${promptTokens} токенов]`);
+
+        // Делаем запрос к API
+        const aiResponse = openRouterRequest(prompt, model, temp, maxRetries, maxTokens);
+        
+        // Извлекаем текст ответа из JSON объекта
+        if (!aiResponse || !aiResponse.choices || !aiResponse.choices[0] || !aiResponse.choices[0].message) {
+            throw new Error("Неожиданный формат ответа от API");
+        }
+        
+        // Берем содержимое ответа
+        let summarizedText = aiResponse.choices[0].message.content.trim();
+        
+        // Очищаем текст только от технических элементов, сохраняя форматирование
+        
+        // Удаляем блоки кода в тройных обратных кавычках
+        summarizedText = summarizedText.replace(/```[\s\S]*?```/g, '');
+        
+        // Удаляем обратные кавычки для кода, но сохраняем их содержимое
+        summarizedText = summarizedText.replace(/`([^`]*)`/g, '$1');
+        
+        // Преобразуем заголовки в жирный текст (вместо удаления)
+        summarizedText = summarizedText.replace(/^\s*#{1,6}\s+(.*)$/gm, '**$1**');
+        
+        // Удаляем HTML-теги
+        summarizedText = summarizedText.replace(/<[^>]*>/g, '');
+        
+        // Сохраняем жирный текст, курсив, маркированные и нумерованные списки
+        // (удаляем соответствующие строки из предыдущей версии функции)
+        
+        // Очищаем лишние пробелы, но сохраняем структуру текста
+        summarizedText = summarizedText.replace(/[ \t]+/g, ' ').trim();
+        
+        // Нормализуем, но сохраняем двойные переносы строк для абзацев
+        summarizedText = summarizedText.replace(/\n{4,}/g, '\n\n\n');
+        
+        const outputTokens = estimateTokenCount(summarizedText);
+        logMessage(`summarizeText: Текст подготовлен с сохранением форматирования, итоговый размер: ${summarizedText.length} символов (примерно ${outputTokens} токенов)`);
+        
+        return summarizedText;
+    } catch (error) {
+        logMessage(`Ошибка в summarizeText: ${error.toString()}`, true);
+        throw new Error('Ошибка суммаризации: ' + error.message);
+    }
+}
+
+/**
+ * Строит промпт для суммаризации текста с сохранением форматирования
+ * @param {string} text Текст для суммаризации
+ * @returns {string} Промпт для суммаризации
+ */
+function buildSummarizePromptWithFormatting(text) {
+    let prompt = "Суммаризируй следующий текст, сохраняя все ключевые моменты и сокращая избыточную информацию. ";
+    prompt += "Суммаризация должна быть содержательной, логичной и связной. ";
+    prompt += "Старайся использовать до 30% от длины исходного текста. ";
+    prompt += "\nВАЖНО: Используй форматирование markdown в своем ответе: ";
+    prompt += "**жирный шрифт** для важных утверждений, ";
+    prompt += "*курсив* для выделения ключевых терминов, ";
+    prompt += "- маркированные списки для перечислений, ";
+    prompt += "1. нумерованные списки для последовательных шагов или приоритетов, ";
+    prompt += "и структурируй текст с помощью абзацев, разделенных пустой строкой.\n\n";
+    prompt += "Текст для суммаризации:\n\n";
+    prompt += text;
+    return prompt;
+}
+
+/**
+ * Вставляет текст в активную ячейку
+ * @param {string} text Текст для вставки
+ */
+function insertTextIntoActiveCell(text) {
+    try {
+        const activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+        const activeSheet = activeSpreadsheet.getActiveSheet();
+        const activeCell = activeSheet.getActiveCell();
+        
+        if (!activeCell) {
+            throw new Error("Не выбрана активная ячейка");
+        }
+        
+        activeCell.setValue(text);
+        return "Текст вставлен в активную ячейку";
+    } catch (error) {
+        logMessage(`Ошибка в insertTextIntoActiveCell: ${error.toString()}`, true);
+        throw new Error("Ошибка при вставке текста: " + error.message);
+    }
+}
+
+/**
+ * Вставляет форматированный текст в активную ячейку, преобразуя разметку markdown
+ * @param {string} markdownText Текст с разметкой markdown
+ * @returns {string} Сообщение о результате
+ */
+function insertFormattedTextIntoActiveCell(markdownText) {
+    try {
+        const activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+        const activeSheet = activeSpreadsheet.getActiveSheet();
+        const activeCell = activeSheet.getActiveCell();
+        
+        if (!activeCell) {
+            throw new Error("Не выбрана активная ячейка");
+        }
+        
+        // Создаем Rich Text объект
+        const richTextBuilder = SpreadsheetApp.newRichTextValue().setText(markdownText);
+        
+        // Обрабатываем жирный текст
+        const boldPattern = /\*\*([^*]+)\*\*/g;
+        let boldMatch;
+        while ((boldMatch = boldPattern.exec(markdownText)) !== null) {
+            const startIndex = boldMatch.index;
+            const endIndex = boldMatch.index + boldMatch[0].length;
+            // Получаем текст без символов разметки
+            const originalText = boldMatch[1];
+            // Удаляем маркеры жирного текста
+            const plainText = markdownText.substring(0, startIndex) + 
+                             originalText + 
+                             markdownText.substring(endIndex);
+            
+            // Применяем форматирование для этого участка текста
+            richTextBuilder.setText(plainText)
+                          .setTextStyle(startIndex, startIndex + originalText.length, 
+                                       SpreadsheetApp.newTextStyle()
+                                       .setBold(true)
+                                       .build());
+            
+            // Обновляем markdownText для последующих итераций
+            markdownText = plainText;
+            // Сбрасываем индекс поиска
+            boldPattern.lastIndex = 0;
+        }
+        
+        // Обрабатываем курсив
+        const italicPattern = /\*([^*]+)\*/g;
+        let italicMatch;
+        while ((italicMatch = italicPattern.exec(markdownText)) !== null) {
+            const startIndex = italicMatch.index;
+            const endIndex = italicMatch.index + italicMatch[0].length;
+            const originalText = italicMatch[1];
+            const plainText = markdownText.substring(0, startIndex) + 
+                             originalText + 
+                             markdownText.substring(endIndex);
+            
+            richTextBuilder.setText(plainText)
+                          .setTextStyle(startIndex, startIndex + originalText.length, 
+                                       SpreadsheetApp.newTextStyle()
+                                       .setItalic(true)
+                                       .build());
+            
+            markdownText = plainText;
+            italicPattern.lastIndex = 0;
+        }
+        
+        // Устанавливаем значение ячейки как Rich Text
+        activeCell.setRichTextValue(richTextBuilder.build());
+        
+        return "Форматированный текст вставлен в активную ячейку";
+    } catch (error) {
+        logMessage(`Ошибка в insertFormattedTextIntoActiveCell: ${error.toString()}`, true);
+        throw new Error("Ошибка при вставке форматированного текста: " + error.message);
+    }
+}

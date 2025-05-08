@@ -924,8 +924,19 @@ function parseCsvAnswer(aiResponse, columnDelimiter) { // columnDelimiter пер
 /**
  * Вставляет данные в целевой лист после analyzeAndInsertExtractedData.
  * Исправлена проблема дублирования данных.
+ * @param {Array} data Массив данных для вставки
+ * @param {Object} targetSheet Целевой лист
+ * @param {Array} selectedHeaders Выбранные заголовки
+ * @param {Array} targetHeaders Заголовки целевого листа
+ * @param {boolean} [byColumn=false] Если true, вставляет данные, находя последнюю строку для каждого столбца отдельно
  */
-function insertDataIntoSheet(data, targetSheet, selectedHeaders, targetHeaders) {
+function insertDataIntoSheet(data, targetSheet, selectedHeaders, targetHeaders, byColumn = false) {
+    // Если включен режим вставки по столбцам, используем новую функцию
+    if (byColumn === true) {
+        return insertDataIntoSheetByColumn(data, targetSheet, selectedHeaders, targetHeaders);
+    }
+    
+    // Оригинальная функция вставки по последней строке таблицы
     if (!data || data.length === 0 || !targetSheet || !selectedHeaders?.length || !targetHeaders?.length) return;
     
     // Добавляем защиту от дублирования - проверяем, есть ли уже данные с таким же содержанием
@@ -972,6 +983,104 @@ function insertDataIntoSheet(data, targetSheet, selectedHeaders, targetHeaders) 
         logMessage(`insertDataIntoSheet: Вставлено ${outputData.length} строк данных`);
     } catch(e) {
         logMessage(`Ошибка при записи данных: ${e}`, true);
+    }
+}
+
+/**
+ * Вставляет данные в целевой лист, находя последнюю занятую ячейку в каждом столбце.
+ * @param {Array} data Массив данных для вставки
+ * @param {Object} targetSheet Целевой лист
+ * @param {Array} selectedHeaders Выбранные заголовки
+ * @param {Array} targetHeaders Заголовки целевого листа
+ */
+function insertDataIntoSheetByColumn(data, targetSheet, selectedHeaders, targetHeaders) {
+    if (!data || data.length === 0 || !targetSheet || !selectedHeaders?.length || !targetHeaders?.length) return;
+    
+    // Создаем карту соответствия заголовков столбцам в целевой таблице
+    const targetHeaderIndexMap = {};
+    targetHeaders.forEach((h,i) => { 
+        if (h) targetHeaderIndexMap[h.toLowerCase()] = i; 
+    });
+    
+    // Находим максимальный индекс столбца для определения ширины данных
+    let maxCol = -1;
+    selectedHeaders.forEach(sh => { 
+        const idx = targetHeaderIndexMap[sh.toLowerCase()]; 
+        if (idx >= 0) maxCol = Math.max(maxCol, idx); 
+    });
+    
+    if (maxCol < 0) return;
+    const numCols = maxCol + 1;
+    
+    // Находим последнюю занятую ячейку для каждого целевого столбца
+    const lastRowByColumn = {};
+    
+    // Получаем все данные таблицы для анализа
+    const allData = targetSheet.getDataRange().getValues();
+    const headerRowIndex = parseInt(targetSheet.createTextFinder(targetHeaders[0]).findNext().getRow()) - 1;
+    
+    // Для каждого столбца находим последнюю непустую ячейку
+    selectedHeaders.forEach(header => {
+        const colIndex = targetHeaderIndexMap[header.toLowerCase()];
+        if (colIndex >= 0) {
+            let lastRow = headerRowIndex; // Начинаем с строки заголовков
+            
+            // Просматриваем все строки в поисках последней непустой ячейки
+            for (let i = 0; i < allData.length; i++) {
+                if (i > headerRowIndex && // Пропускаем заголовки и строки выше
+                    colIndex < allData[i].length && 
+                    String(allData[i][colIndex]).trim() !== '') {
+                    lastRow = i;
+                }
+            }
+            
+            // Сохраняем номер последней строки с данными для этого столбца
+            lastRowByColumn[colIndex] = lastRow + 1; // +1 т.к. массив начинается с 0, а строки с 1
+        }
+    });
+    
+    logMessage(`insertDataIntoSheetByColumn: Найдены последние занятые строки для столбцов: ${JSON.stringify(lastRowByColumn)}`);
+    
+    // Для каждой строки новых данных, создаем список операций вставки по столбцам
+    const columnOperations = [];
+    
+    for (let i = 0; i < data.length; i++) {
+        const row = Array.isArray(data[i]) ? data[i] : [];
+        
+        // Для каждого заголовка проверяем, есть ли данные для вставки
+        for (let j = 0; j < selectedHeaders.length; j++) {
+            const header = selectedHeaders[j];
+            const colIndex = targetHeaderIndexMap[header.toLowerCase()];
+            
+            if (colIndex >= 0 && j < row.length && row[j].toString().trim() !== '') {
+                // Если есть данные, добавляем операцию вставки
+                const targetRow = lastRowByColumn[colIndex] || targetSheet.getLastRow() + 1;
+                
+                columnOperations.push({
+                    colIndex: colIndex,
+                    rowIndex: targetRow,
+                    value: row[j]
+                });
+                
+                // Обновляем последнюю строку для этого столбца
+                lastRowByColumn[colIndex] = targetRow + 1;
+            }
+        }
+    }
+    
+    // Выполняем вставку данных для каждой операции
+    if (columnOperations.length > 0) {
+        columnOperations.forEach(op => {
+            try {
+                targetSheet.getRange(op.rowIndex, op.colIndex + 1, 1, 1).setValue(op.value);
+            } catch (e) {
+                logMessage(`Ошибка при вставке в ячейку (строка ${op.rowIndex}, столбец ${op.colIndex + 1}): ${e}`, true);
+            }
+        });
+        
+        logMessage(`insertDataIntoSheetByColumn: Вставлено ${columnOperations.length} ячеек данных индивидуально по столбцам`);
+    } else {
+        logMessage(`insertDataIntoSheetByColumn: Нет данных для вставки после фильтрации`);
     }
 }
 
@@ -1082,8 +1191,15 @@ function isValidBase64(str) {
 
 /**
  * Второй шаг - анализ данных по ID из кэша
+ * @param {string} fileDataId ID файла в кэше
+ * @param {number} headerRow Номер строки с заголовками
+ * @param {Array<string>} selectedHeaders Выбранные заголовки
+ * @param {string} aiInstructions Инструкции для AI
+ * @param {string} pageRange Диапазон страниц
+ * @param {boolean} [byColumn=false] Если true, вставляет данные, находя последнюю строку для каждого столбца отдельно
+ * @returns {Object} Результат операции
  */
-function analyzeDataById(fileDataId, headerRow, selectedHeaders, aiInstructions, pageRange) {
+function analyzeDataById(fileDataId, headerRow, selectedHeaders, aiInstructions, pageRange, byColumn = false) {
   try {
     // Получаем данные из кэша
     const cachedDataString = CacheService.getScriptCache().get("fileDataCache_" + fileDataId);
@@ -1175,7 +1291,8 @@ function analyzeDataById(fileDataId, headerRow, selectedHeaders, aiInstructions,
       
       const parsedData = parseCsvAnswer(aiResponse, '|');
       
-      insertDataIntoSheet(parsedData, targetSheet, headersToUse, targetHeaders);
+      // Передаем параметр byColumn для определения метода вставки
+      insertDataIntoSheet(parsedData, targetSheet, headersToUse, targetHeaders, byColumn);
       
       // Удаляем временную таблицу
       try {
@@ -1251,4 +1368,255 @@ function getSheetNamesById(fileDataId) {
       sheetNames: []
     };
   }
+}
+
+/**
+ * Извлекает текст из загруженного файла для суммаризации
+ * Использует более надежный метод для Excel-файлов
+ * @param {Object} fileData Объект с информацией о файле (name, type, data)
+ * @returns {Object} Результат обработки файла {success: boolean, text: string, error: string}
+ */
+function extractTextFromFile(fileData) {
+    try {
+        if (!fileData || !fileData.data) {
+            throw new Error("Нет данных файла для обработки");
+        }
+        
+        logMessage(`Начата обработка файла: ${fileData.name} (${fileData.type})`);
+        
+        // Декодируем данные из base64
+        const blob = Utilities.newBlob(Utilities.base64Decode(fileData.data), fileData.type, fileData.name);
+        
+        // Получаем расширение файла
+        const fileExtension = fileData.name.split('.').pop().toLowerCase();
+        let extractedText = "";
+        
+        // Обрабатываем разные типы файлов
+        if (['xlsx', 'xls', 'ods'].includes(fileExtension)) {
+            // Для электронных таблиц - используем более надежный метод
+            try {
+                // Создаем временный файл в DriveApp
+                const tempFolder = DriveApp.createFolder("TempFolder_" + Date.now());
+                const tempFile = tempFolder.createFile(blob);
+                
+                // Используем Advanced Drive API для конвертации без необходимости открывать как Spreadsheet
+                const resource = {
+                    title: tempFile.getName() + "_text",
+                    mimeType: MimeType.GOOGLE_SHEETS
+                };
+                
+                // Конвертируем без открытия
+                const file = Drive.Files.copy(resource, tempFile.getId(), {convert: true});
+                const tempSheetId = file.id;
+                
+                // Получаем содержимое через API
+                let content = [];
+                const spreadsheet = SpreadsheetApp.openById(tempSheetId);
+                const sheets = spreadsheet.getSheets();
+                
+                // Извлекаем данные из всех листов
+                for (let i = 0; i < sheets.length; i++) {
+                    const sheet = sheets[i];
+                    const data = sheet.getDataRange().getDisplayValues();
+                    
+                    if (data && data.length > 0) {
+                        // Добавляем имя листа
+                        content.push(`[Лист: ${sheet.getName()}]`);
+                        
+                        // Добавляем данные
+                        for (let row of data) {
+                            // Фильтруем пустые ячейки и объединяем
+                            const rowText = row.filter(cell => cell && String(cell).trim() !== "").join(" | ");
+                            if (rowText) {
+                                content.push(rowText);
+                            }
+                        }
+                        content.push("\n"); // Разделители между листами
+                    }
+                }
+                
+                extractedText = content.join("\n");
+                
+                // Очистка временных файлов
+                try {
+                    DriveApp.getFileById(tempSheetId).setTrashed(true);
+                    tempFile.setTrashed(true);
+                    tempFolder.setTrashed(true);
+                } catch (cleanupError) {
+                    logMessage(`Предупреждение: Не удалось очистить временные файлы: ${cleanupError.toString()}`, true);
+                }
+                
+            } catch (excelError) {
+                // Альтернативный метод обработки, если первый не сработал
+                logMessage(`Ошибка при обработке Excel через API: ${excelError.toString()}. Пробуем альтернативный метод.`, true);
+                
+                try {
+                    // Обрабатываем Excel как текст напрямую
+                    const csvData = convertExcelToText(blob);
+                    if (csvData) {
+                        extractedText = csvData;
+                    } else {
+                        throw new Error("Не удалось извлечь данные из файла Excel");
+                    }
+                } catch (fallbackError) {
+                    throw new Error(`Не удалось обработать Excel-файл: ${fallbackError.message}`);
+                }
+            }
+        } else if (['docx', 'doc'].includes(fileExtension)) {
+            // Для документов Word, используем улучшенный метод
+            try {
+                // Преобразуем в Google Doc через Drive API
+                const tempFolder = DriveApp.createFolder("TempFolder_" + Date.now());
+                const tempFile = tempFolder.createFile(blob);
+                
+                const resource = {
+                    title: tempFile.getName() + "_doc",
+                    mimeType: MimeType.GOOGLE_DOCS
+                };
+                
+                const file = Drive.Files.copy(resource, tempFile.getId(), {convert: true});
+                const docId = file.id;
+                
+                // Извлекаем текст
+                const doc = DocumentApp.openById(docId);
+                extractedText = doc.getBody().getText();
+                
+                // Очистка
+                DriveApp.getFileById(docId).setTrashed(true);
+                tempFile.setTrashed(true);
+                tempFolder.setTrashed(true);
+                
+            } catch (docError) {
+                throw new Error(`Ошибка обработки Word-документа: ${docError.message}`);
+            }
+        } else if (['csv', 'txt'].includes(fileExtension)) {
+            // Для текстовых файлов - прямое чтение
+            extractedText = blob.getDataAsString();
+        } else {
+            throw new Error(`Неподдерживаемый тип файла: ${fileExtension}`);
+        }
+        
+        if (!extractedText || extractedText.trim() === "") {
+            throw new Error("Из файла не удалось извлечь текст");
+        }
+        
+        logMessage(`Текст успешно извлечен из файла ${fileData.name}, длина: ${extractedText.length} символов`);
+        
+        return {
+            success: true,
+            text: extractedText,
+            error: null
+        };
+        
+    } catch (error) {
+        logMessage(`Ошибка при извлечении текста из файла: ${error.toString()}`, true);
+        return {
+            success: false,
+            text: null,
+            error: `Ошибка обработки файла: ${error.message}`
+        };
+    }
+}
+
+/**
+ * Вспомогательная функция для прямого чтения Excel-файлов без конвертации
+ * @param {Blob} blob Excel-файл как Blob
+ * @returns {string} Извлеченный текст
+ */
+function convertExcelToText(blob) {
+    try {
+        // Создаем временный CSV для хранения данных
+        let csvContent = [];
+        
+        // Создаем временный файл для доступа через Drive API
+        const tempFile = DriveApp.createFile(blob);
+        const fileId = tempFile.getId();
+        
+        // Извлекаем как текст через Drive API
+        // Это обходной путь, который может работать для некоторых файлов Excel
+        const exportLink = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text/csv`;
+        const params = {
+            method: 'get',
+            headers: {
+                'Authorization': 'Bearer ' + ScriptApp.getOAuthToken()
+            },
+            muteHttpExceptions: true
+        };
+        
+        const response = UrlFetchApp.fetch(exportLink, params);
+        
+        if (response.getResponseCode() === 200) {
+            csvContent.push(response.getContentText());
+        }
+        
+        // Удаляем временный файл
+        tempFile.setTrashed(true);
+        
+        return csvContent.join("\n");
+    } catch (error) {
+        logMessage(`Ошибка при конвертации Excel в текст: ${error.toString()}`, true);
+        return null;
+    }
+}
+
+/**
+ * Извлекает текст из нескольких загруженных файлов и объединяет их результаты
+ * Используется для массовой суммаризации
+ * @param {Object[]} filesData Массив объектов с информацией о файлах (name, type, data)
+ * @returns {Object} Результат обработки файла {success: boolean, text: string, error: string}
+ */
+function extractTextFromFiles(filesData) {
+    try {
+        if (!filesData || !Array.isArray(filesData) || filesData.length === 0) {
+            throw new Error("Не передан массив файлов для обработки");
+        }
+        
+        logMessage(`Начата обработка нескольких файлов: ${filesData.length} файл(ов)`);
+        
+        // Массив для хранения текста из каждого файла
+        const extractedTexts = [];
+        
+        // Обработка всех файлов последовательно
+        for (let i = 0; i < filesData.length; i++) {
+            const fileData = filesData[i];
+            logMessage(`Обработка файла ${i+1}/${filesData.length}: ${fileData.name}`);
+            
+            try {
+                // Используем существующую функцию для извлечения текста из отдельного файла
+                const result = extractTextFromFile(fileData);
+                
+                if (result.success) {
+                    // Добавляем имя файла как заголовок к тексту
+                    extractedTexts.push(`==== ФАЙЛ: ${fileData.name} ====\n\n${result.text}\n\n`);
+                    logMessage(`Успешно извлечен текст из файла: ${fileData.name}`);
+                } else {
+                    // Добавляем сообщение об ошибке вместо текста
+                    extractedTexts.push(`==== ФАЙЛ: ${fileData.name} (ОШИБКА) ====\n\nНе удалось извлечь текст: ${result.error}\n\n`);
+                    logMessage(`Ошибка при извлечении текста из файла ${fileData.name}: ${result.error}`, true);
+                }
+            } catch (fileError) {
+                // Обрабатываем ошибки для каждого файла отдельно
+                extractedTexts.push(`==== ФАЙЛ: ${fileData.name} (ОШИБКА) ====\n\nНе удалось обработать: ${fileError.message}\n\n`);
+                logMessage(`Исключение при обработке файла ${fileData.name}: ${fileError.toString()}`, true);
+            }
+        }
+        
+        // Объединяем все тексты с разделителями
+        const combinedText = extractedTexts.join('\n');
+        
+        return {
+            success: true,
+            text: combinedText,
+            error: null,
+            filesProcessed: filesData.length
+        };
+        
+    } catch (error) {
+        logMessage(`Общая ошибка при извлечении текста из файлов: ${error.toString()}`, true);
+        return {
+            success: false,
+            text: null,
+            error: `Ошибка обработки файлов: ${error.message}`
+        };
+    }
 }

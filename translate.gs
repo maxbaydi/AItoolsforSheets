@@ -1,3 +1,5 @@
+// Константы
+
 // Функции для перевода
 function translateToRussian() {
     translateRange('русский', SpreadsheetApp.getActiveRange().getA1Notation());
@@ -17,6 +19,22 @@ function translateToSpanish() {
 
 function translateToFrench() {
     translateRange('французский', SpreadsheetApp.getActiveRange().getA1Notation());
+}
+
+/**
+ * Функция-обертка для перевода выбранного диапазона на указанный язык
+ * @param {string} language - Язык, на который нужно перевести
+ * @param {string} rangeStr - A1-нотация диапазона ячеек
+ * @returns {string} - Сообщение о результате перевода
+ */
+function translateRange(language, rangeStr) {
+    try {
+        // Используем существующую функцию translateRangeWithModel с настройками по умолчанию
+        return translateRangeWithModel(language, rangeStr);
+    } catch (error) {
+        logMessage(`Ошибка в translateRange: ${error.toString()}`, true);
+        throw new Error('Ошибка перевода: ' + error.message);
+    }
 }
 
 // Быстрый перевод через Google Translate (машинный перевод)
@@ -358,20 +376,28 @@ function analyzeDataStructure(values) {
  */
 function buildOptimizedPrompt(language, items, chunkIndex, totalChunks) {
     // Более строгий промпт для обеспечения правильного формата ответа
-    let prompt = `Переведи следующие тексты на ${language} язык.\n\n`;
+    let prompt = `Переведи следующие ${items.length} тексты на ${language} язык.\n\n`;
     
     // Подробные инструкции для модели
     prompt += `ВАЖНЫЕ ИНСТРУКЦИИ:\n`;
     prompt += `1. НЕ переводи имена собственные, цифры, коды, email адреса.\n`;
     prompt += `2. Сохраняй форматирование и структуру текста.\n`;
-    prompt += `3. ОБЯЗАТЕЛЬНО разделяй каждый перевод символом '${COLUMN_DELIMITER}'.\n`;
-    prompt += `4. Верни ровно ${items.length} фрагментов, разделенных символом '${COLUMN_DELIMITER}'.\n`;
+    prompt += `3. ОБЯЗАТЕЛЬНО используй символ '${COLUMN_DELIMITER}' как разделитель между переводами.\n`;
+    prompt += `4. Верни ровно ${items.length} переводов, разделенных символом '${COLUMN_DELIMITER}'.\n`;
     prompt += `5. Не добавляй номера, пояснения или дополнительный текст.\n`;
     prompt += `6. Каждый перевод должен идти строго в том же порядке, что и исходные тексты.\n`;
-    prompt += `7. Когда встречаешь маркер <n>, замени его на перенос строки в своем ответе.\n\n`;
+    prompt += `7. Маркер <n> в тексте замени на перенос строки в переводе.\n`;
+    prompt += `8. Убедись, что разделитель '${COLUMN_DELIMITER}' используется только между переводами.\n\n`;
     
-    prompt += `Пример правильного ответа:\n`;
-    prompt += `перевод текста 1${COLUMN_DELIMITER}перевод текста 2${COLUMN_DELIMITER}перевод текста 3\n\n`;
+    // Добавляем более наглядный пример с реальным разделителем
+    prompt += `ФОРМАТ ОТВЕТА:\n`;
+    if (items.length === 1) {
+        prompt += `перевод текста 1\n\n`;
+    } else if (items.length === 2) {
+        prompt += `перевод текста 1${COLUMN_DELIMITER}перевод текста 2\n\n`;
+    } else {
+        prompt += `перевод текста 1${COLUMN_DELIMITER}перевод текста 2${COLUMN_DELIMITER}перевод текста 3${COLUMN_DELIMITER}...\n\n`;
+    }
     
     // Добавляем исходные тексты
     prompt += `ТЕКСТЫ ДЛЯ ПЕРЕВОДА:\n`;
@@ -380,8 +406,16 @@ function buildOptimizedPrompt(language, items, chunkIndex, totalChunks) {
         prompt += `ТЕКСТ ${index + 1}:\n${item.text.replace(/\n/g, " <n> ")}\n\n`;
     });
     
-    // Дополнительное напоминание в конце
-    prompt += `ВАЖНО: Верни ${items.length} переводов, разделённых символом '${COLUMN_DELIMITER}'. Не добавляй ничего лишнего. Маркер <n> замени на перенос строки.`;
+    // Дополнительное напоминание в конце с указанием конкретного количества переводов
+    prompt += `ВАЖНО: Верни ${items.length} переводов`;
+    if (items.length > 1) {
+        prompt += `, разделённых символом '${COLUMN_DELIMITER}'`;
+    }
+    prompt += `. Не добавляй номера текстов или другие пояснения. Просто переводы, `;
+    if (items.length > 1) {
+        prompt += `разделенные символом '${COLUMN_DELIMITER}'. `;
+    }
+    prompt += `Маркер <n> замени на перенос строки.`;
     
     return prompt;
 }
@@ -395,7 +429,8 @@ function extractTranslationsFromResponse(response, expectedCount) {
     }
     
     const answer = response.choices[0].message.content.trim();
-    logMessage(`Получен ответ от модели: ${answer.substring(0, 100)}...`);
+    logMessage(`Получен ответ от модели: ${answer.substring(0, 100)}...`, false, 3);
+    logMessage(`Полный ответ модели: ${answer}`, false, 5);
     
     // Убираем лишние разделители в начале и конце
     const cleanAnswer = answer.replace(/^¦+/, '').replace(/¦+$/, '');
@@ -405,15 +440,18 @@ function extractTranslationsFromResponse(response, expectedCount) {
     
     // Проверяем количество переводов
     if (translations.length !== expectedCount) {
-        logMessage(`Предупреждение: получено ${translations.length} переводов, ожидалось ${expectedCount}`, true);
+        logMessage(`Предупреждение: получено ${translations.length} переводов, ожидалось ${expectedCount}`, true, 1);
+        logMessage(`Разделитель '${COLUMN_DELIMITER}' найден ${cleanAnswer.split(COLUMN_DELIMITER).length - 1} раз`, false, 2);
         
         // Пытаемся восстановить структуру, если модель не использовала разделители
         if (translations.length === 1 && expectedCount > 1) {
+            logMessage(`Пытаемся восстановить структуру перевода из текста ответа...`, false, 2);
+            
             // Пробуем найти маркеры "ТЕКСТ N:" или похожие паттерны
             const textMarkers = cleanAnswer.match(/ТЕКСТ\s+\d+:|TEXT\s+\d+:|Текст\s+\d+:|текст\s+\d+:/g);
             
             if (textMarkers && textMarkers.length >= expectedCount) {
-                logMessage("Пытаемся восстановить структуру по маркерам ТЕКСТ N:");
+                logMessage(`Найдены текстовые маркеры: ${textMarkers.join(', ')}`, false, 2);
                 
                 const parts = [];
                 const indices = [];
@@ -439,32 +477,64 @@ function extractTranslationsFromResponse(response, expectedCount) {
                     // Извлекаем текст без маркера
                     const part = cleanAnswer.substring(markerEnd, end).trim();
                     parts.push(part);
+                    logMessage(`Извлечена часть ${i+1}: ${part.substring(0, 30)}...`, false, 4);
                 }
                 
                 if (parts.length === expectedCount) {
+                    logMessage(`Успешно восстановлено ${parts.length} частей текста по маркерам`, false, 2);
                     return parts.map(part => part.replace(/<n>/g, '\n'));
+                } else {
+                    logMessage(`Не удалось восстановить ожидаемое количество частей: получено ${parts.length}, ожидалось ${expectedCount}`, true, 2);
                 }
+            } else {
+                logMessage(`Не найдены подходящие текстовые маркеры или их недостаточно`, false, 2);
             }
             
             // Пробуем разбить по числовым маркерам
             const numberMarkers = cleanAnswer.match(/^\d+\.\s/gm);
             if (numberMarkers && numberMarkers.length >= expectedCount) {
-                logMessage("Пытаемся восстановить структуру по числовым маркерам:");
+                logMessage(`Найдены числовые маркеры: ${numberMarkers.join(', ')}`, false, 2);
                 
                 const parts = cleanAnswer.split(/^\d+\.\s/m).filter(part => part.trim() !== '');
                 if (parts.length === expectedCount) {
+                    logMessage(`Успешно восстановлено ${parts.length} частей текста по числовым маркерам`, false, 2);
                     return parts.map(part => part.trim().replace(/<n>/g, '\n'));
+                } else {
+                    logMessage(`Не удалось восстановить ожидаемое количество частей по числовым маркерам: получено ${parts.length}, ожидалось ${expectedCount}`, false, 2);
                 }
+            } else {
+                logMessage(`Не найдены подходящие числовые маркеры или их недостаточно`, false, 2);
             }
             
             // Пробуем разбить по двойным переносам строк
             if (cleanAnswer.includes('\n\n')) {
-                logMessage("Пытаемся восстановить структуру по двойным переносам строк:");
+                logMessage(`Пытаемся разбить по двойным переносам строк`, false, 2);
                 
                 const parts = cleanAnswer.split(/\n\n+/).filter(part => part.trim() !== '');
                 if (parts.length === expectedCount) {
+                    logMessage(`Успешно восстановлено ${parts.length} частей текста по двойным переносам строк`, false, 2);
                     return parts.map(part => part.trim().replace(/<n>/g, '\n'));
+                } else {
+                    logMessage(`Не удалось восстановить ожидаемое количество частей по двойным переносам: получено ${parts.length}, ожидалось ${expectedCount}`, false, 2);
                 }
+            } else {
+                logMessage(`Не найдены двойные переносы строк в ответе`, false, 2);
+            }
+
+            // В крайнем случае, пробуем просто разбить на равные части
+            if (expectedCount > 1) {
+                logMessage(`Попытка разбить ответ на ${expectedCount} равных частей`, false, 2);
+                const roughLength = Math.floor(cleanAnswer.length / expectedCount);
+                const parts = [];
+                
+                for (let i = 0; i < expectedCount; i++) {
+                    const start = i * roughLength;
+                    const end = (i === expectedCount - 1) ? cleanAnswer.length : (i + 1) * roughLength;
+                    parts.push(cleanAnswer.substring(start, end).trim());
+                }
+                
+                logMessage(`Разбито на ${parts.length} частей равной длины (примерно ${roughLength} символов каждая)`, false, 2);
+                return parts.map(part => part.replace(/<n>/g, '\n'));
             }
         }
     }
@@ -475,10 +545,12 @@ function extractTranslationsFromResponse(response, expectedCount) {
     // Если всё ещё не совпадает количество, дополняем или обрезаем
     while (translations.length < expectedCount) {
         translations.push("");
+        logMessage(`Добавлен пустой перевод для соответствия ожидаемому количеству`, false, 2);
     }
     
     if (translations.length > expectedCount) {
         translations = translations.slice(0, expectedCount);
+        logMessage(`Переводы обрезаны до ожидаемого количества ${expectedCount}`, false, 2);
     }
     
     return translations;
