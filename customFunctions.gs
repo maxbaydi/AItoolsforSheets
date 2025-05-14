@@ -10,37 +10,25 @@
  */
 function AIDISC(inputRange, formatType) {
   try {
-    let name = "";
-    let specs = "";
-    // const hints = ""; // Пока не используется, можно будет добавить позже
+    let dataText = "";
 
     if (typeof inputRange === 'string') {
-      // Если передана одна ячейка как строка
-      name = inputRange;
+      dataText = inputRange.trim();
     } else if (Array.isArray(inputRange)) {
-      // Если передан диапазон
-      if (inputRange.length > 0 && Array.isArray(inputRange[0])) {
-        // Обрабатываем только первую строку диапазона, если их несколько
-        const firstRow = inputRange[0];
-        if (firstRow.length > 0) {
-          name = String(firstRow[0]);
-        }
-        if (firstRow.length > 1) {
-          specs = firstRow.slice(1).filter(String).join(", "); // Объединяем остальные ячейки как характеристики
-        }
-      } else if (inputRange.length > 0) {
-         // Если это одномерный массив (например, результат другой функции)
-         name = String(inputRange[0]);
-         if (inputRange.length > 1) {
-           specs = inputRange.slice(1).filter(String).join(", ");
-         }
+      if (inputRange.length > 0 && Array.isArray(inputRange[0])) { // 2D array
+        dataText = inputRange
+          .map(row => row.map(cell => String(cell).trim()).filter(String).join(" "))
+          .filter(s => s.length > 0)
+          .join("\n");
+      } else if (inputRange.length > 0) { // 1D array (вероятно, одна строка или столбец)
+        dataText = inputRange.map(cell => String(cell).trim()).filter(String).join(" ");
       }
     } else {
       return "Ошибка: Неверный формат входных данных. Ожидается ячейка или диапазон.";
     }
 
-    if (!name) {
-      return "Ошибка: Название товара не указано.";
+    if (!dataText) {
+      return "Ошибка: Входные данные для описания товара не указаны или пусты.";
     }
 
     let formattingInstructions = "Не используй HTML и Markdown разметку, такую как звездочки (**) для выделения текста. Не добавляй никаких ссылок или упоминаний о других товарах. Не используй эмодзи.";
@@ -52,28 +40,21 @@ function AIDISC(inputRange, formatType) {
       formattingInstructions = "Используй Markdown разметку для форматирования текста (например, переносы строк, **жирный шрифт**, *курсив*, - для списков). Не используй эмодзи.";
     }
 
-    const promptTemplate = `Сгенерируйте SEO-описание для товара "{name}" со следующими характеристиками:
-{specs}
-
-Особенности для выделения:
-{hints}
-
-Формат:
-- Не более 750 слов
-- Маркированный список преимуществ
-- Технические детали
-- Делай краткий вывод в конце
-- Используй ключевые слова, связанные с товаром
+    const promptCoreInstruction = "Сгенерируй SEO-описание для товара на основе следующих данных. Постарайся определить название товара и его ключевые характеристики из предоставленного текста:";
+    
+    const promptFormatAndOutputRequirements = `
+Формат описания:
+- Маркированный список преимуществ.
+- Маркированный список технических характеристик.
+- Используй ключевые слова, связанные с товаром.
 
 ${formattingInstructions}
 
-Важно: Верни только сгенерированное описание товара без каких-либо дополнительных фраз или пояснений.`;
+Важно: Верни только сгенерированное описание товара без каких-либо дополнительных фраз, вступлений или пояснений. Не повторяй исходные данные в начале ответа.`;
 
-    let prompt = promptTemplate.replace("{name}", name);
-    prompt = prompt.replace("{specs}", specs || "нет дополнительных характеристик");
-    prompt = prompt.replace("{hints}", ""); // hints пока не используем
+    const finalPrompt = promptCoreInstruction + "\n\n" + dataText + "\n\n" + promptFormatAndOutputRequirements;
 
-    logMessage("AIDISC: Сформирован промпт: " + prompt);
+    logMessage("AIDISC: Сформирован промпт: " + finalPrompt);
 
     const settings = getSettings();
     const model = settings.model;
@@ -82,7 +63,7 @@ ${formattingInstructions}
     const retries = settings.retryAttempts || 3;
 
     // Кэширование
-    const cacheKey = "AIDISC_" + calculateMD5(prompt + model + temperature + maxTokens + (userFormatType || 1));
+    const cacheKey = "AIDISC_" + calculateMD5(finalPrompt + model + temperature + maxTokens + (userFormatType || 1));
     const cachedResult = CACHE.get(cacheKey);
     if (cachedResult) {
       logMessage("AIDISC: Результат из кэша для ключа " + cacheKey);
@@ -90,7 +71,7 @@ ${formattingInstructions}
     }
 
     logMessage("AIDISC: Запрос к API. Модель: " + model + ", Температура: " + temperature + ", Макс.токены: " + maxTokens);
-    const aiResponse = openRouterRequest(prompt, model, temperature, retries, maxTokens);
+    const aiResponse = openRouterRequest(finalPrompt, model, temperature, retries, maxTokens);
 
     if (aiResponse && aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message && aiResponse.choices[0].message.content) {
       const description = aiResponse.choices[0].message.content.trim();
@@ -111,17 +92,18 @@ ${formattingInstructions}
 /**
  * @OnlyCurrentDoc
  *
- * Отправляет простой запрос к AI.
+ * Использует AI для генерации текста, обобщения информации, классификации данных или анализа тональности текста.
+ * Поведение функции стремится соответствовать документированной функции =AI() от Google, но работает как стандартная пользовательская функция, возвращающая результат напрямую.
  *
- * @param {string} promptTemplate Строка запроса. Может содержать плейсхолдер {data} для вставки данных из диапазона.
- * @param {string|string[][]} [dataRange] Диапазон ячеек или одна ячейка, данные из которой будут вставлены вместо {data} в запросе.
- * @param {number} [temperatureValue] Температура для генерации ответа (например, 0.7). Если не указана, используется значение из настроек.
+ * @param {string} prompt Запрос, описывающий желаемое действие (например, "Суммаризируй текст" или "Какая тональность у этого отзыва?"). Если указан dataRange, этот запрос будет применен к данным из dataRange.
+ * @param {string|string[][]} [dataRange] Необязательный диапазон ячеек или одна ячейка, данные из которой будут обработаны согласно инструкции в prompt.
+ * @param {number} [temperatureValue] Необязательная температура для генерации ответа (например, 0.7). Если не указана, используется значение из настроек.
  * @return {string} Ответ от AI.
  * @customfunction
  */
-function AIQ(promptTemplate, dataRange, temperatureValue) {
+function AIQ(prompt, dataRange, temperatureValue) {
   try {
-    let processedPrompt = String(promptTemplate);
+    let userQueryPart = String(prompt);
     let dataText = "";
 
     if (dataRange !== undefined && dataRange !== null && dataRange !== "") {
@@ -136,15 +118,13 @@ function AIQ(promptTemplate, dataRange, temperatureValue) {
       } else {
         dataText = String(dataRange);
       }
-      processedPrompt = processedPrompt.replace(/{data}/g, dataText);
-    } else {
-      // Если dataRange не предоставлен, но {data} есть в шаблоне, удалить его или заменить на пустую строку
-      processedPrompt = processedPrompt.replace(/{data}/g, "");
-    }
+      // Формируем запрос: инструкция, затем данные
+      userQueryPart = userQueryPart + "\n\n" + dataText;
+    } 
 
     // Базовые инструкции для AI
-    const baseInstructions = "Ответь только на поставленный вопрос или выполни инструкцию. Не добавляй никаких вступлений, объяснений, извинений или дополнительного текста, кроме самого ответа. Не используй Markdown или HTML разметку.";
-    const finalPrompt = processedPrompt + "\n\n" + baseInstructions;
+    const baseInstructions = "Ответь только на поставленный вопрос или выполни инструкцию. Не добавляй никаких вступлений, объяснений, пояснений, извинений или дополнительного текста, кроме самого ответа. В ответе только результат.";
+    const finalPrompt = userQueryPart + "\n\n" + baseInstructions;
 
     logMessage("AIQ: Сформирован промпт: " + finalPrompt);
 
