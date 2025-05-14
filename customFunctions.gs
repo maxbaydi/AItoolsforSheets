@@ -107,3 +107,76 @@ ${formattingInstructions}
     return "Ошибка: " + e.message;
   }
 }
+
+/**
+ * @OnlyCurrentDoc
+ *
+ * Отправляет простой запрос к AI.
+ *
+ * @param {string} promptTemplate Строка запроса. Может содержать плейсхолдер {data} для вставки данных из диапазона.
+ * @param {string|string[][]} [dataRange] Диапазон ячеек или одна ячейка, данные из которой будут вставлены вместо {data} в запросе.
+ * @param {number} [temperatureValue] Температура для генерации ответа (например, 0.7). Если не указана, используется значение из настроек.
+ * @return {string} Ответ от AI.
+ * @customfunction
+ */
+function AIQ(promptTemplate, dataRange, temperatureValue) {
+  try {
+    let processedPrompt = String(promptTemplate);
+    let dataText = "";
+
+    if (dataRange !== undefined && dataRange !== null && dataRange !== "") {
+      if (typeof dataRange === 'string') {
+        dataText = dataRange;
+      } else if (Array.isArray(dataRange)) {
+        if (dataRange.length > 0 && Array.isArray(dataRange[0])) { // 2D array
+          dataText = dataRange.map(row => row.filter(String).join(" ")).filter(s => s.length > 0).join("\n");
+        } else if (dataRange.length > 0) { // 1D array
+          dataText = dataRange.filter(String).join(" ");
+        }
+      } else {
+        dataText = String(dataRange);
+      }
+      processedPrompt = processedPrompt.replace(/{data}/g, dataText);
+    } else {
+      // Если dataRange не предоставлен, но {data} есть в шаблоне, удалить его или заменить на пустую строку
+      processedPrompt = processedPrompt.replace(/{data}/g, "");
+    }
+
+    // Базовые инструкции для AI
+    const baseInstructions = "Ответь только на поставленный вопрос или выполни инструкцию. Не добавляй никаких вступлений, объяснений, извинений или дополнительного текста, кроме самого ответа. Не используй Markdown или HTML разметку.";
+    const finalPrompt = processedPrompt + "\n\n" + baseInstructions;
+
+    logMessage("AIQ: Сформирован промпт: " + finalPrompt);
+
+    const settings = getSettings();
+    const model = settings.model; // Можно выбрать другую модель по умолчанию для простых запросов
+    const temperature = (typeof temperatureValue === 'number' && !isNaN(temperatureValue)) ? temperatureValue : settings.temperature;
+    const maxTokens = settings.maxTokensShortAnswer || 500; // Лимит для коротких ответов
+    const retries = settings.retryAttempts || 3;
+
+    // Кэширование
+    const cacheKey = "AIQ_" + calculateMD5(finalPrompt + model + temperature + maxTokens);
+    const cachedResult = CACHE.get(cacheKey);
+    if (cachedResult) {
+      logMessage("AIQ: Результат из кэша для ключа " + cacheKey);
+      return cachedResult;
+    }
+
+    logMessage("AIQ: Запрос к API. Модель: " + model + ", Температура: " + temperature + ", Макс.токены: " + maxTokens);
+    const aiResponse = openRouterRequest(finalPrompt, model, temperature, retries, maxTokens);
+
+    if (aiResponse && aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message && aiResponse.choices[0].message.content) {
+      const result = aiResponse.choices[0].message.content.trim();
+      CACHE.put(cacheKey, result, 21600); // Кэшируем на 6 часов
+      logMessage("AIQ: Ответ от AI: " + result);
+      return result;
+    } else {
+      logMessage("AIQ: Ошибка от API или неверный формат ответа: " + JSON.stringify(aiResponse), true);
+      return "Ошибка: Не удалось получить ответ от AI.";
+    }
+
+  } catch (e) {
+    logMessage("AIQ: КРИТИЧЕСКАЯ ОШИБКА: " + e.toString() + " " + e.stack, true);
+    return "Ошибка: " + e.message;
+  }
+}

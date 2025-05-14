@@ -49,6 +49,8 @@ function onOpen() {
         .addSubMenu(aiToolsMenu)
         .addSeparator()
         .addItem('⚙️ Настройки API', 'showApiKeyDialog')
+        .addSeparator()
+        .addItem('Справка', 'showHelpSidebar') // Новый пункт меню
         .addToUi();
     
     // Добавляем отдельное меню для изображений
@@ -128,6 +130,14 @@ function getTargetHeadersFromServer(headerRow) {
   } catch (e) {
     return [];
   }
+}
+
+// Показывает сайдбар справки
+function showHelpSidebar() {
+    const html = HtmlService.createHtmlOutputFromFile('HelpSidebar')
+        .setTitle('Справка по AI Ассистенту')
+        .setWidth(350);
+    SpreadsheetApp.getUi().showSidebar(html);
 }
 
 // Показывает диалог вставки изображения
