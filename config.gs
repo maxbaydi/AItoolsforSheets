@@ -4,12 +4,14 @@ const DEFAULT_MAX_TOKENS = 8192;
 const CACHE_SHEET_NAME = "__AI_CACHE__";
 const LOG_SHEET_NAME = "__AI_LOGS__";
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const VSEGPT_API_URL = 'https://api.vsegpt.ru/v1/chat/completions';
 const COLUMN_DELIMITER = '¦';
 const ROW_DELIMITER = ';';
 const SCRIPT_PROPERTIES = PropertiesService.getScriptProperties();
 const DEFAULT_TEMPERATURE = 0.5;
 const TEMPERATURE_SETTING_KEY = 'TRANSLATE_TEMPERATURE';
 const MODEL_SETTING_KEY = 'MODEL_SETTING';
+const VSEGPT_MODEL_SETTING_KEY = 'VSEGPT_MODEL_SETTING';
 const MAX_TOKENS_SETTING_KEY = 'MAX_TOKENS_SETTING';
 const CACHE = CacheService.getScriptCache();
 const ORIGINAL_TEXT_ATTRIBUTE = 'data-original-text';
@@ -18,8 +20,19 @@ const ORIGINAL_TEXT_ATTRIBUTE = 'data-original-text';
  * Возвращает объект с настройками модели, температуры и макс. токенов из ScriptProperties.
  */
 function getSettings() {
+    const userProperties = PropertiesService.getUserProperties();
+    const selectedApi = userProperties.getProperty(SELECTED_API_PROPERTY) || 'openrouter';
+    
+    // Выбираем модель в зависимости от текущего API
+    let model;
+    if (selectedApi === 'vsegpt') {
+        model = SCRIPT_PROPERTIES.getProperty(VSEGPT_MODEL_SETTING_KEY) || DEFAULT_MODEL;
+    } else {
+        model = SCRIPT_PROPERTIES.getProperty(MODEL_SETTING_KEY) || DEFAULT_MODEL;
+    }
+    
     return {
-        model: SCRIPT_PROPERTIES.getProperty(MODEL_SETTING_KEY) || DEFAULT_MODEL,
+        model: model,
         temperature: parseFloat(SCRIPT_PROPERTIES.getProperty(TEMPERATURE_SETTING_KEY)) || DEFAULT_TEMPERATURE,
         maxTokens: parseInt(SCRIPT_PROPERTIES.getProperty(MAX_TOKENS_SETTING_KEY), 10) || DEFAULT_MAX_TOKENS,
         retryAttempts: 3

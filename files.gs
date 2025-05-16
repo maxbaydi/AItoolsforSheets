@@ -625,9 +625,8 @@ function analyzeAndInsertExtractedData(fileData) {
             settings.temperature,
             settings.retryAttempts,
             settings.maxTokens
-        );
-
-        const parsedData = parseCsvAnswer(aiResponse, '|');
+        );        // Передаем количество выбранных заголовков для правильной нормализации результата
+        const parsedData = parseCsvAnswer(aiResponse, '|', selectedHeaders.length);
 
         insertDataIntoSheet(parsedData, targetSheet, selectedHeaders, targetHeaders);
 
@@ -652,7 +651,7 @@ function analyzeAndInsertExtractedData(fileData) {
 }
 
 /**
- * Формирует УПРОЩЕННЫЙ промпт для извлечения данных из табличных файлов.
+ * Формирует усиленный промпт для извлечения данных из табличных файлов.
   */
 function buildTablePrompt(sheetData, sourceHeaders, targetHeaders, aiInstructions) {
     // Собираем ВСЕ строки данных (пропуская заголовок)
@@ -666,45 +665,41 @@ function buildTablePrompt(sheetData, sourceHeaders, targetHeaders, aiInstruction
 
     // Формируем промпт, используя массив строк и join() вместо конкатенации строк
     const promptParts = [
-        `ЗАДАЧА: Извлечь данные из предоставленного CSV-фрагмента ("ДАННЫЕ ИЗ ФАЙЛА") в соответствии с "ЦЕЛЕВЫМИ ЗАГОЛОВКАМИ". Применить "ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ" при извлечении. Вернуть результат СТРОГО в формате CSV ('|' - столбцы, ';' - строки), БЕЗ ЗАГОЛОВКОВ.`,
-        `\nЦЕЛЕВЫЕ ЗАГОЛОВКИ (извлечь данные для них):\n${targetHeaders.join(', ')}`,
-        `\nЗАГОЛОВКИ ИСХОДНОГО ФАЙЛА (для контекста): ${sourceHeaders.join(", ")}`,
+        `ЗАДАЧА: Внимательно проанализировать CSV-данные и извлечь структурированную информацию в точном соответствии с целевыми заголовками. Каждая строка исходных данных может стать отдельной записью в ответе.`,
+        `\nЦЕЛЕВЫЕ ЗАГОЛОВКИ (${targetHeaders.length} колонок, строго в этом порядке):\n${targetHeaders.join(', ')}`,
+        `\nЗАГОЛОВКИ ИСХОДНОГО ФАЙЛА: ${sourceHeaders.join(", ")}`,
         `\nДАННЫЕ ИЗ ФАЙЛА (CSV, '|' - столбцы, ';' - строки):\n${dataString}`
     ];
 
     // Добавляем дополнительные инструкции
     if (aiInstructions) {
-        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ (применить при извлечении и форматировании):\n${aiInstructions}`);
-    } else {
-        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ: Нет.`);
+        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ:\n${aiInstructions}`);
     }
+      // Усиленные правила форматирования ответа - согласованные с buildTextPrompt и с более явными инструкциями
+    promptParts.push(`\nПРАВИЛА ФОРМАТИРОВАНИЯ - СТРОГО СОБЛЮДАТЬ:
+1. Каждая запись (строка данных) - ОТДЕЛЬНАЯ СТРОКА, разделенная ';'.
+2. Каждая запись ДОЛЖНА содержать РОВНО ${targetHeaders.length} полей (по числу целевых заголовков).
+3. Разделитель колонок: символ '|' (вертикальная черта).
+4. Разделитель строк: символ ';' (точка с запятой).
+5. Если в данных несколько значений для одного заголовка - объединять их внутри одной ячейки через запятую.
+6. Если данных для какого-то заголовка нет - оставлять поле ПУСТЫМ (пример: 'значение1||значение3').
+7. Символ ';' в извлекаемых данных ЗАМЕНЯТЬ на '.' (точку).
+8. НЕ ВКЛЮЧАТЬ в ответ заголовки, комментарии или пояснения.
+9. Данные должны быть извлечены и организованы СТРОГО в порядке следования целевых заголовков.
+10. ИГНОРИРОВАТЬ заполнители типа "-", "null", "N/A", "не указано".
+11. ВАЖНО: каждая запись должна иметь ровно ${targetHeaders.length} полей, РАЗДЕЛЕННЫХ '|', даже если некоторые поля пустые.
+12. ФОРМАТ ДОЛЖЕН БЫТЬ БУКВАЛЬНО ТАКИМ: поле1|поле2|...|поле${targetHeaders.length};
 
-    // Усиленные правила форматирования ответа
-    promptParts.push(`\nПРАВИЛА ФОРМАТИРОВАНИЯ ОТВЕТА - ЧРЕЗВЫЧАЙНО ВАЖНО:
-1. СТРОГО ЗАПРЕЩЕНО добавлять любой текст, пояснения или комментарии в ответ.
-2. СТРОГО ЗАПРЕЩЕНО использовать любые другие символы-разделители, кроме указанных.
-3. СТРОГО ЗАПРЕЩЕНО включать заголовки или название колонок в ответ.
-4. Начинать ответ строго с первой ячейки данных, без пустых строк.
-5. Для разделения СТОЛБЦОВ всегда использовать ТОЛЬКО вертикальную черту '|'. 
-6. Для разделения СТРОК/ЗАПИСЕЙ всегда использовать ТОЛЬКО точку с запятой ';'.
-7. Если несколько записей (строк) - разделять их точкой с запятой ';'.
-8. Если данных для целевого столбца нет, оставить поле ПУСТЫМ (пример: 'значение1||значение3').
-9. Если в извлекаемых данных встречается символ ';', ЗАМЕНИТЬ его на '.' (точка).
-10. Для каждого целевого заголовка должна быть ОДНА колонка в том же порядке.
-
-ФОРМАТ ОТВЕТА - ВСЕГДА ВЫГЛЯДИТ ТАК:
-значение1|значение2|значение3;
-значение4|значение5|значение6;
-
-НЕ СОБЛЮДАТЬ ЭТИ ПРАВИЛА АБСОЛЮТНО НЕДОПУСТИМО!`);
+ПРИМЕР ПРАВИЛЬНОГО ОТВЕТА (для ${targetHeaders.length} полей):
+${targetHeaders.map((_, i) => `поле${i+1}`).join('|')};
+${targetHeaders.map((_, i) => `поле${i+1}`).join('|')}`);
 
     // Объединяем все части промпта вместе
     return promptParts.join('');
 }
 
 /**
- * Формирует СТРОГИЙ промпт для извлечения данных из текстовых файлов.
- * Усилен для обеспечения единообразного формата ответа от разных моделей.
+ * Формирует усиленный промпт для извлечения данных из текстовых файлов.
  */
 function buildTextPrompt(sheetData, targetHeaders, aiInstructions) {
     // Оптимизированный вариант без многократной конкатенации строк
@@ -716,39 +711,37 @@ function buildTextPrompt(sheetData, targetHeaders, aiInstructions) {
     
     // Формируем промпт из массива частей для лучшей производительности
     const promptParts = [
-        `ЗАДАЧА: Извлечь данные из предоставленного ТЕКСТА ("ТЕКСТ ФАЙЛА") в соответствии с "ЦЕЛЕВЫМИ ЗАГОЛОВКАМИ". Применить "ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ" при извлечении. Вернуть результат СТРОГО в формате CSV ('|' - столбцы, ';' - строки), БЕЗ ЗАГОЛОВКОВ.`,
-        `\nЦЕЛЕВЫЕ ЗАГОЛОВКИ (извлечь данные для них):\n${targetHeaders.join(', ')}`,
+        `ЗАДАЧА: Внимательно проанализировать текст и извлечь структурированные данные в точном соответствии с целевыми заголовками. Если текст содержит информацию о нескольких организациях/сущностях, каждая должна быть отдельной записью.`,
+        `\nЦЕЛЕВЫЕ ЗАГОЛОВКИ (${targetHeaders.length} колонок, строго в этом порядке):\n${targetHeaders.join(', ')}`,
         `\nТЕКСТ ФАЙЛА:\n${fullText}`
     ];
     
     // Добавляем дополнительные инструкции в массив
     if (aiInstructions) {
-        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ (применить при извлечении и форматировании):\n${aiInstructions}`);
-    } else {
-        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ: Нет.`);
+        promptParts.push(`\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ:\n${aiInstructions}`);
     }
     
     // Обрабатывать весь текст целиком, страницы уже учтены на уровне скрипта
-    promptParts.push(`\nОбрабатывать весь текст целиком.`);
-    
-    // Усиленные правила форматирования ответа - аналогично табличному промпту
-    promptParts.push(`\nПРАВИЛА ФОРМАТИРОВАНИЯ ОТВЕТА - ЧРЕЗВЫЧАЙНО ВАЖНО:
-1. СТРОГО ЗАПРЕЩЕНО добавлять любой текст, пояснения или комментарии в ответ.
-2. СТРОГО ЗАПРЕЩЕНО использовать любые другие символы-разделители, кроме указанных.
-3. СТРОГО ЗАПРЕЩЕНО включать заголовки или название колонок в ответ.
-4. Начинать ответ строго с первой ячейки данных, без пустых строк.
-5. Для разделения СТОЛБЦОВ всегда использовать ТОЛЬКО вертикальную черту '|'. 
-6. Для разделения СТРОК/ЗАПИСЕЙ всегда использовать ТОЛЬКО точку с запятой ';'.
-7. Если несколько записей (строк) - разделять их точкой с запятой ';'.
-8. Если данных для целевого столбца нет, оставить поле ПУСТЫМ (пример: 'значение1||значение3').
-9. Если в извлекаемых данных встречается символ ';', ЗАМЕНИТЬ его на '.' (точка).
-10. Для каждого целевого заголовка должна быть ОДНА колонка в том же порядке.
+    promptParts.push(`\nОбрабатывать весь текст целиком. Распознавать отдельные записи.`);
+      // Усиленные правила форматирования ответа с более явными инструкциями о структуре данных
+    promptParts.push(`\nПРАВИЛА ФОРМАТИРОВАНИЯ - СТРОГО СОБЛЮДАТЬ:
+1. Каждая запись (организация/сущность) - ОТДЕЛЬНАЯ СТРОКА, разделенная ';'.
+2. Каждая запись ДОЛЖНА содержать РОВНО ${targetHeaders.length} полей (по числу целевых заголовков).
+3. Разделитель колонок: символ '|' (вертикальная черта).
+4. Разделитель строк: символ ';' (точка с запятой).
+5. Если в тексте несколько значений для одного заголовка (например, несколько телефонов) - объединять их внутри одной ячейки через запятую.
+6. Если данных для какого-то заголовка нет - оставлять поле ПУСТЫМ (пример: 'значение1||значение3').
+7. Символ ';' в извлекаемых данных ЗАМЕНЯТЬ на '.' (точку).
+8. НЕ ВКЛЮЧАТЬ в ответ заголовки, комментарии или пояснения.
+9. Данные должны быть извлечены и организованы СТРОГО в порядке следования целевых заголовков.
+10. ИГНОРИРОВАТЬ заполнители типа "-", "null", "N/A", "не указано".
+11. НЕ ДУБЛИРОВАТЬ поля внутри одной записи - каждое поле должно находиться в своей позиции.
+12. НЕ ОБЪЕДИНЯТЬ несколько записей в одну - каждая организация/сущность должна быть отдельной записью.
+13. СЛЕДИТЬ ЗА СОГЛАСОВАННОСТЬЮ ПОЛЕЙ: если в тексте указаны "Юридический адрес" и "Фактический адрес", они должны быть объединены в одно поле "Адрес".
 
-ФОРМАТ ОТВЕТА - ВСЕГДА ВЫГЛЯДИТ ТАК:
-значение1|значение2|значение3;
-значение4|значение5|значение6;
-
-НЕ СОБЛЮДАТЬ ЭТИ ПРАВИЛА АБСОЛЮТНО НЕДОПУСТИМО!`);
+ПРИМЕР ПРАВИЛЬНОГО ОТВЕТА (для ${targetHeaders.length} полей):
+${targetHeaders.map((_, i) => `поле${i+1}`).join('|')};
+${targetHeaders.map((_, i) => `поле${i+1}`).join('|')}`);
     
     // Объединяем все части в финальный промпт
     return promptParts.join('');
@@ -759,9 +752,10 @@ function buildTextPrompt(sheetData, targetHeaders, aiInstructions) {
  * Учитывает различные форматы ответов от разных моделей.
  * @param {object} aiResponse Ответ от AI.
  * @param {string} columnDelimiter Ожидаемый разделитель колонок (используется как dataDelimiter, если не определен автоматически).
+ * @param {number} [expectedColumns=0] Ожидаемое количество колонок (если известно из целевых заголовков).
  * @returns {string[][]} Массив массивов строк с данными.
  */
-function parseCsvAnswer(aiResponse, columnDelimiter) { // columnDelimiter передан, но не используется в текущей логике определения разделителей
+function parseCsvAnswer(aiResponse, columnDelimiter, expectedColumns = 0) { // Добавлен параметр expectedColumns
     const defaultRowDelimiter = ';'; // Используем как разделитель записей по умолчанию или при очистке
     if (!aiResponse?.choices?.[0]?.message) {
         throw new Error("Неожиданный ответ от OpenRouter: " + JSON.stringify(aiResponse));
@@ -785,7 +779,7 @@ function parseCsvAnswer(aiResponse, columnDelimiter) { // columnDelimiter пер
     }
 
     try {
-        // Анализируем структуру ответа для определения разделителей
+    // Анализируем структуру ответа для определения разделителей
         const hasPipe = answer.includes('|');
         const hasSemicolon = answer.includes(';');
 
@@ -795,26 +789,14 @@ function parseCsvAnswer(aiResponse, columnDelimiter) { // columnDelimiter пер
             return [[answer]];
         }
 
-        // Определяем, какой символ используется для разделения записей (строк), а какой для данных (колонок)
-        // Эвристика: если присутствуют оба символа ('|' и ';'),
-        // предполагаем, что тот, который встречается реже, разделяет записи (строки),
-        // а тот, что чаще - колонки внутри записи.
-        let recordDelimiter, dataDelimiter;
-
-        if (hasPipe && hasSemicolon) {
-            const pipeCount = (answer.match(/\|/g) || []).length;
-            const semicolonCount = (answer.match(/;/g) || []).length;
-
-            // Если '|' больше, то ';' - разделитель записей, '|' - разделитель данных
-            if (pipeCount > semicolonCount) {
-                recordDelimiter = ';';
-                dataDelimiter = '|';
-            } else { // Иначе (если ';' больше или равно) '|' - разделитель записей, ';' - разделитель данных
-                recordDelimiter = '|';
-                dataDelimiter = ';';
-            }
-            logMessage(`parseCsvAnswer: Detected delimiters - Record: '${recordDelimiter}', Data: '${dataDelimiter}'`);
-        } else if (hasPipe) {
+        // Используем фиксированные разделители вместо эвристики,
+        // поскольку в промте мы четко указываем, какие разделители должны использоваться
+        // (| для столбцов, ; для строк)
+        let recordDelimiter = ';';  // всегда используем ; как разделитель записей
+        let dataDelimiter = '|';    // всегда используем | как разделитель данных
+          logMessage(`parseCsvAnswer: Используем фиксированные разделители - Строки: '${recordDelimiter}', Данные: '${dataDelimiter}'`);
+        
+        if (hasPipe) {
             // Только '|': предполагаем, что это разделитель данных, а записи разделены defaultRowDelimiter (';') после очистки
             recordDelimiter = defaultRowDelimiter; // ';'
             dataDelimiter = '|';
@@ -842,73 +824,99 @@ function parseCsvAnswer(aiResponse, columnDelimiter) { // columnDelimiter пер
 
         }
 
-        // Разделяем на отдельные записи
-        // Если recordDelimiter определен, используем его. Иначе считаем всю строку одной записью.
-        const records = recordDelimiter
-            ? answer.split(recordDelimiter).filter(rec => rec.trim() !== '')
-            : [answer]; // Если разделитель записей не найден, считаем всю строку одной записью
+    // Разделяем на отдельные записи по установленному разделителю
+        const records = answer.split(recordDelimiter).filter(rec => rec.trim() !== '');
+        if (records.length === 0) return []; // Если записей нет, возвращаем пустой массив
 
-        logMessage(`parseCsvAnswer: Split into ${records.length} potential records using delimiter '${recordDelimiter}'`);
+        logMessage(`parseCsvAnswer: Разбиение на ${records.length} записей по разделителю '${recordDelimiter}'`);
+
+        // Подсчитываем количество ожидаемых колонок на основе первой строки
+        const firstRecord = records[0].trim();
+        const expectedColumnCount = firstRecord.split(dataDelimiter).length;
+        logMessage(`parseCsvAnswer: Ожидаем ${expectedColumnCount} колонок на основе первой строки`);
 
         // Обрабатываем каждую запись
         for (const record of records) {
             const trimmedRecord = record.trim();
             if (trimmedRecord === '') continue;
 
-            // Разделяем данные записи на колонки, используя определенный dataDelimiter
+            // Разделяем данные записи на колонки
             if (trimmedRecord.includes(dataDelimiter)) {
                 try {
-                    // Используем стандартный парсер CSV для колонок
-                    // Utilities.parseCsv ожидает символ, а не строку
-                    const parsedRow = Utilities.parseCsv(trimmedRecord, dataDelimiter.charCodeAt(0))[0];
-                    // Проверяем, что строка не пустая после парсинга
-                    if (parsedRow && parsedRow.some(cell => String(cell).trim() !== '')) {
-                        result.push(parsedRow.map(cell => String(cell).trim()));
-                    } else {
-                         logMessage(`parseCsvAnswer: Parsed row is empty or invalid for record: "${trimmedRecord}"`);
+                    // Сначала пробуем использовать простое разделение для более надежной работы
+                    const cells = trimmedRecord.split(dataDelimiter);
+                    
+                    // Проверка на пустую строку после разделения
+                    if (cells.some(cell => cell.trim() !== '')) {
+                        // Очистка пробелов вокруг значений и преобразование к строке
+                        result.push(cells.map(cell => String(cell).trim()));
                     }
                 } catch (e) {
-                    logMessage(`parseCsvAnswer: Utilities.parseCsv failed for record "${trimmedRecord}" with delimiter '${dataDelimiter}'. Error: ${e}. Falling back to split.`);
-                    // В случае ошибки парсинга (например, некорректные кавычки), делаем разделение вручную
-                    const cells = trimmedRecord.split(dataDelimiter).map(cell => cell.trim());
-                     // Проверяем, что строка не пустая после ручного разделения
-                    if (cells.some(cell => cell !== '')) {
-                        result.push(cells);
-                    } else {
-                         logMessage(`parseCsvAnswer: Manual split resulted in empty row for record: "${trimmedRecord}"`);
-                    }
+                    logMessage(`parseCsvAnswer: Ошибка при разделении строки "${trimmedRecord}": ${e}. Пропускаем.`, true);
                 }
             } else {
-                // Если разделителя данных нет в этой записи, добавляем всю запись как одну колонку
-                 logMessage(`parseCsvAnswer: Data delimiter '${dataDelimiter}' not found in record "${trimmedRecord}". Adding as single cell.`);
-                result.push([trimmedRecord]);
-            }
-        }
-
-        // Дополнительная валидация и очистка результата (удаление пустых строк/ячеек)
-        // Этот блок можно упростить или удалить, если парсинг и фильтрация выше работают корректно
-        const finalResult = [];
-        for (let row of result) {
-            // Убираем пустые ячейки в конце каждой строки
-            let lastNonEmptyIndex = -1;
-            for (let j = row.length - 1; j >= 0; j--) {
-                if (row[j] !== '') {
-                    lastNonEmptyIndex = j;
-                    break;
+                // Если разделитель данных не найден, проверяем, может ли это быть пустой строкой или строкой без данных
+                if (trimmedRecord && trimmedRecord !== '') {
+                    // Создаём строку с ожидаемым количеством колонок, если известно из первой строки
+                    const cells = expectedColumnCount > 1 
+                        ? [trimmedRecord, ...Array(expectedColumnCount-1).fill('')]
+                        : [trimmedRecord];
+                        
+                    logMessage(`parseCsvAnswer: Разделитель данных не найден в "${trimmedRecord}". Создаем запись с ${cells.length} ячейками.`);
+                    result.push(cells);
                 }
             }
-            // Обрезаем строку, если есть пустые ячейки в конце
-            if (lastNonEmptyIndex < row.length - 1) {
-                row = row.slice(0, lastNonEmptyIndex + 1);
+        }        // Улучшенная валидация и нормализация результата
+        // Определяем максимальное количество колонок, которое должно быть во всех строках
+        let maxColumns = 0;
+        result.forEach(row => {
+            maxColumns = Math.max(maxColumns, row.length);
+        });        // Определяем количество заголовков, если доступно
+        // Используем переданное количество ожидаемых колонок, если оно задано
+        const targetHeaderCount = expectedColumns > 0 ? expectedColumns : 0;
+        
+        // Используем максимальное из ожидаемого и найденного количества колонок
+        const normalizedColumnCount = Math.max(targetHeaderCount, maxColumns);
+        logMessage(`parseCsvAnswer: Нормализуем все строки до ${normalizedColumnCount} колонок`);
+          // Нормализуем все строки до одинакового количества колонок и проверяем корректность
+        const finalResult = [];
+        for (let row of result) {
+            // Проверка на неполные данные - если в строке меньше колонок чем ожидается, 
+            // и первая запись выглядит корректно, а эта нет, попытаться разделить данные
+            if (row.length < normalizedColumnCount && finalResult.length > 0 && 
+                finalResult[0].length === normalizedColumnCount && row.some(cell => cell.includes('|'))) {
+                
+                logMessage(`parseCsvAnswer: Обнаружена строка с "|" внутри ячейки: ${row.join('|')}`);
+                
+                // Пытаемся разобрать строку заново, если видим разделители внутри ячеек
+                let allCellData = row.join('|');
+                let splitCells = allCellData.split('|');
+                
+                if (splitCells.length >= normalizedColumnCount) {
+                    // Создаем новую строку из разделенных данных
+                    const resplitRow = Array(normalizedColumnCount).fill('');
+                    for (let i = 0; i < Math.min(splitCells.length, normalizedColumnCount); i++) {
+                        resplitRow[i] = splitCells[i].trim();
+                    }
+                    row = resplitRow;
+                    logMessage(`parseCsvAnswer: Строка переформатирована: ${row.join('|')}`);
+                }
             }
-
-            // Если строка не пустая после обрезки, добавляем в результат
-            if (row.length > 0) {
-                 finalResult.push(row);
+            
+            // Создаем новую строку с фиксированным числом колонок
+            const normalizedRow = Array(normalizedColumnCount).fill('');
+            
+            // Копируем существующие данные, но не больше чем нужно колонок
+            for (let i = 0; i < Math.min(row.length, normalizedColumnCount); i++) {
+                normalizedRow[i] = row[i];
             }
+            
+            // Добавляем нормализованную строку в финальный результат
+            finalResult.push(normalizedRow);
         }
-         logMessage(`parseCsvAnswer, final result after validation: ${JSON.stringify(finalResult)}`);
-         return finalResult; // Возвращаем очищенный результат
+        
+        logMessage(`parseCsvAnswer: Финальный результат после нормализации: ${JSON.stringify(finalResult)}`);
+        return finalResult; // Возвращаем нормализованный результат
 
     } catch (error) {
         logMessage(`Ошибка парсинга CSV: ${error.message}. Ответ AI: "${answer}"`, true);

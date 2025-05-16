@@ -82,7 +82,8 @@
 
 
        input[type="text"],
-        input[type="number"] {
+        input[type="number"],
+        input[type="password"] {
             width: 100%;
             padding: 8px;
             box-sizing: border-box;
@@ -100,13 +101,13 @@
             min-width: 0; /*  для правильного сжатия */
             text-align: left; /*  Выравнивание текста по левому краю */
         }
-        input[type="text"]:focus, input[type="number"]:focus {
+        input[type="text"]:focus, input[type="number"]:focus, input[type="password"]:focus {
             outline: none;
             border-color: var(--primary-color-3);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
        }
 
-       input[type="text"]::placeholder, input[type="number"]::placeholder {
+       input[type="text"]::placeholder, input[type="number"]::placeholder, input[type="password"]::placeholder {
             color: var(--text-color-sub);
             font-size: 0.85em; /* Размер шрифта */
             font-style: italic;
@@ -299,7 +300,7 @@
        }
 
        /* Стили для выпадающего списка */
-        #modelSelect {
+        #modelSelect, #apiSelect { /* Распространяем стили и на apiSelect */
             width: 100%; /* Полная ширина */
             padding: 8px;
             box-sizing: border-box;
@@ -316,7 +317,7 @@
             transition: all 0.2s ease;
         }
 
-        #modelSelect:focus {
+        #modelSelect:focus, #apiSelect:focus { /* Распространяем стили и на apiSelect */
             outline: none;
             border-color: var(--primary-color-3);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
@@ -379,492 +380,317 @@
             display: none;
         }
     </style>
+    <script>
+        let savedOpenRouterModel = '';
+        let savedVseGptModel = '';
+
+        function saveKeys() {
+            var openRouterKey = document.getElementById('openRouterKey').value;
+            var vseGptKey = document.getElementById('vseGptKey').value;
+            var selectedApi = document.getElementById('apiSelect').value;
+            var temperature = document.getElementById('temperature').value;
+            var maxTokens = document.getElementById('maxTokens').value;
+            var enableHints = document.getElementById('enableHints').checked;
+            var freeOnly = document.getElementById('freeOnly').checked;
+            
+            var modelValue;
+            if (selectedApi === 'vsegpt') {
+                modelValue = document.getElementById('modelInput') ? document.getElementById('modelInput').value : '';
+                savedVseGptModel = modelValue; // Обновляем на клиенте
+            } else { // openrouter
+                modelValue = document.getElementById('modelSelect') ? document.getElementById('modelSelect').value : '';
+                savedOpenRouterModel = modelValue; // Обновляем на клиенте
+            }
+
+            showProgress('Сохранение настроек...');
+            google.script.run
+                .withSuccessHandler(function(response) {
+                    showStatus(response);
+                    hideProgress();
+                    // Можно было бы перезагрузить настройки через loadKeysAndSettings(), 
+                    // но т.к. мы уже обновили savedVseGptModel/savedOpenRouterModel,
+                    // и остальные поля не меняются сервером при простом сохранении,
+                    // то явная перезагрузка может быть излишней и вызвать мерцание.
+                    // Если сервер может изменить другие поля в ответ на сохранение, то перезагрузка нужна.
+                })
+                .withFailureHandler(function(error) {
+                    showError('Ошибка сохранения: ' + error.message);
+                    hideProgress();
+                })
+                .saveApiKeyAndTemperature(openRouterKey, temperature, modelValue, maxTokens, enableHints, freeOnly, vseGptKey, selectedApi);
+        }
+
+        function loadModels(freeOnly, selectedModelFromSettings, skipCache) {
+            var modelSelect = document.getElementById('modelSelect');
+            var currentSelectedApiProvider = document.getElementById('apiSelect').value; // Получаем текущий выбранный API
+
+            if (!modelSelect && currentSelectedApiProvider === 'openrouter') {
+                 console.log("modelSelect еще не создан для OpenRouter, updateModelInputBasedOnSelectedApi должен это исправить.");
+                return;
+            } else if (!modelSelect) {
+                return; 
+            }
+
+            modelSelect.disabled = true;
+            modelSelect.innerHTML = '<option value="">Загрузка моделей...</option>';
+            showProgress('Загрузка списка моделей для ' + currentSelectedApiProvider + '...');
+
+            google.script.run
+                .withSuccessHandler(function(models) {
+                    modelSelect.innerHTML = ''; 
+                    if (models && models.length > 0) {
+                        models.forEach(function(model) {
+                            var option = document.createElement('option');
+                            option.value = model.id;
+                            option.textContent = model.name;
+                            modelSelect.appendChild(option);
+                        });
+                        if (selectedModelFromSettings) {
+                            modelSelect.value = selectedModelFromSettings;
+                            if (modelSelect.value !== selectedModelFromSettings && selectedModelFromSettings !== '') {
+                                console.warn("Сохраненная модель '" + selectedModelFromSettings + "' не найдена в списке для " + currentSelectedApiProvider + ". Отображается первая доступная.");
+                            }
+                        }
+                    } else {
+                        modelSelect.innerHTML = '<option value="">Модели не найдены</option>';
+                        if (currentSelectedApiProvider === 'openrouter' && !skipCache) {
+                            console.log("Модели не найдены для OpenRouter при использовании кэша. Попытка загрузить напрямую с API...");
+                            loadModels(freeOnly, selectedModelFromSettings, true);
+                            return; 
+                        }
+                    }
+                    modelSelect.disabled = false;
+                    hideProgress();
+                })
+                .withFailureHandler(function(error) {
+                    showError('Ошибка загрузки моделей для ' + currentSelectedApiProvider + ': ' + error.message);
+                    modelSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+                    modelSelect.disabled = false;
+                    hideProgress();
+                })
+                .getModelsListFromClient(currentSelectedApiProvider, freeOnly, skipCache); // Передаем currentSelectedApiProvider первым аргументом
+        }
+
+        function loadKeysAndSettings() {
+            showProgress('Загрузка настроек...');
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    document.getElementById('openRouterKey').value = data.apiKey || '';
+                    document.getElementById('vseGptKey').value = data.vseGptApiKey || '';
+                    document.getElementById('apiSelect').value = data.selectedApi;
+                    document.getElementById('temperature').value = data.temperature || '0.7';
+                    document.getElementById('maxTokens').value = data.maxTokens || '1000';
+                    document.getElementById('enableHints').checked = data.enableHints !== false;
+                    document.getElementById('freeOnly').checked = data.freeOnly === true;
+
+                    savedOpenRouterModel = data.openRouterModel || '';
+                    savedVseGptModel = data.vseGptModel || '';
+
+                    let initialModelToLoad;
+                    if (data.selectedApi === 'vsegpt') {
+                        initialModelToLoad = savedVseGptModel;
+                    } else {
+                        initialModelToLoad = savedOpenRouterModel;
+                    }
+                    
+                    updateModelInputBasedOnSelectedApi(data.selectedApi, data.freeOnly, initialModelToLoad, false);
+                    hideProgress();
+                })
+                .withFailureHandler(function(error) {
+                    showError('Ошибка загрузки настроек: ' + error.message);
+                    hideProgress();
+                })
+                .loadSettingsForDialog();
+        }
+
+        function resetTemperature() {
+            document.getElementById('temperature').value = '0.7'; // или DEFAULT_TEMPERATURE если доступна
+        }
+        
+        function updateFreeOnly() {
+            var selectedApi = document.getElementById('apiSelect').value;
+            // Эта функция вызывается только для OpenRouter, т.к. чекбокс freeOnly виден только для него
+            if (selectedApi === 'openrouter') { 
+                var freeOnly = document.getElementById('freeOnly').checked;
+                loadModels(freeOnly, savedOpenRouterModel, true); 
+            }
+        }
+        
+        function updateModelInputBasedOnSelectedApi(selectedApi, freeOnly, currentModel, skipCache) {
+            var modelContainer = document.getElementById('modelContainer');
+            var freeOnlyContainer = document.getElementById('freeOnlyContainer');
+            modelContainer.innerHTML = ''; 
+
+            if (selectedApi === 'vsegpt') {
+                freeOnlyContainer.style.display = 'none';
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.id = 'modelInput';
+                input.value = currentModel; 
+                input.placeholder = 'Введите название модели VseGPT';
+                
+                var label = document.createElement('label');
+                label.htmlFor = 'modelInput';
+                label.textContent = 'Модель VseGPT:';
+                label.className = 'top-label';
+
+                modelContainer.appendChild(label);
+                modelContainer.appendChild(input);
+            } else { // openrouter
+                freeOnlyContainer.style.display = 'block';
+                var select = document.createElement('select');
+                select.id = 'modelSelect';
+                select.disabled = true; 
+                
+                var label = document.createElement('label');
+                label.htmlFor = 'modelSelect';
+                label.textContent = 'Модель OpenRouter:';
+                label.className = 'top-label';
+
+                modelContainer.appendChild(label);
+                modelContainer.appendChild(select);
+                
+                loadModels(freeOnly, currentModel, skipCache); 
+            }
+        }
+        
+        function handleApiSelectChange() {
+            var selectedApi = document.getElementById('apiSelect').value;
+            var freeOnly = document.getElementById('freeOnly').checked; // freeOnly для OpenRouter, будет проигнорировано для VseGPT на сервере
+            
+            let modelForSelectedApi;
+            if (selectedApi === 'vsegpt') {
+                modelForSelectedApi = savedVseGptModel;
+            } else { // openrouter
+                modelForSelectedApi = savedOpenRouterModel;
+            }
+            // При смене API, skipCache = false, чтобы попытаться использовать кэш для нового API.
+            // freeOnly будет использоваться OpenRouter для фильтрации или кэширования.
+            updateModelInputBasedOnSelectedApi(selectedApi, freeOnly, modelForSelectedApi, false); 
+        }
+
+        window.onload = function() {
+            loadKeysAndSettings();
+            document.getElementById('apiSelect').addEventListener('change', handleApiSelectChange);
+            // Предполагается, что у вас есть кнопки с ID 'saveButton', 'resetTemperatureButton'
+            // и чекбокс 'freeOnly'. Если ID другие, исправьте.
+            if(document.getElementById('saveButton')) {
+              document.getElementById('saveButton').addEventListener('click', saveKeys);
+            }
+            if(document.getElementById('resetTemperatureButton')) {
+              document.getElementById('resetTemperatureButton').addEventListener('click', resetTemperature);
+            }
+            if(document.getElementById('freeOnly')) {
+              document.getElementById('freeOnly').addEventListener('change', updateFreeOnly);
+            }
+            // Добавьте здесь другие слушатели событий, если они есть
+        };
+
+        // Вспомогательные функции для отображения статуса (должны быть определены)
+        function showProgress(message) {
+            document.getElementById('progressIndicator').textContent = message;
+            document.getElementById('progressIndicator').style.display = 'block';
+            document.getElementById('status-message').style.display = 'none';
+            document.getElementById('error-message').style.display = 'none';
+        }
+
+        function hideProgress() {
+            document.getElementById('progressIndicator').style.display = 'none';
+        }
+
+        function showStatus(message) {
+            document.getElementById('status-message').textContent = message;
+            document.getElementById('status-message').style.display = 'block';
+            document.getElementById('error-message').style.display = 'none';
+             setTimeout(() => { document.getElementById('status-message').style.display = 'none'; }, 5000);
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('status-message').style.display = 'none';
+        }
+    </script>
 </head>
 <body>
     <div class="container">
-        <!-- API Key -->
+        <!-- API ключи и выбор провайдера -->
         <div class="input-group">
-            <label for="apiKey" data-tooltip="Введите ваш API-ключ от OpenRouter в формате sk-or-v1-...">API-ключ OpenRouter:</label>
+            <label for="openRouterKey" class="top-label">API-ключ OpenRouter:</label>
+            <input type="password" id="openRouterKey" placeholder="Введите ваш API ключ OpenRouter">
+        </div>
+
+        <div class="input-group"> <!-- Поле для VseGPT API ключа -->
+            <label for="vseGptKey" class="top-label">API-ключ VseGPT:</label>
+            <input type="password" id="vseGptKey" placeholder="Введите ваш API ключ VseGPT">
+        </div>
+
+        <div class="input-group"> <!-- Выпадающий список для выбора API -->
+            <label for="apiSelect" class="top-label">Выберите API провайдера:</label>
+            <div class="select-wrapper">
+                <select id="apiSelect">
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="vsegpt">VseGPT</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Настройки температуры и модели -->
+        <div class="input-group">
+            <label for="temperature" class="top-label">Температура (0-1):</label>
             <div class="input-group-row">
-                <input type="text" id="apiKey" placeholder="sk-or-v1-..." pattern="sk-or-v1-.*" data-tooltip="Ключ должен начинаться с sk-or-v1-">
-                <button onclick="deleteKey()" id="deleteButton" class="custom-button delete-button" data-tooltip="Удалить текущий API-ключ">Удалить</button>
+                <input type="number" id="temperature" min="0" max="1" step="0.1" value="0.7">
+                <button id="resetTemperatureButton" onclick="resetTemperature()">Сбросить</button>
             </div>
         </div>
 
-        <!-- Model -->
-        <div class="input-group">
-           <label for="modelSelect" data-tooltip="Выберите модель для генерации текста">Выберите модель:</label>
-           <div class="select-wrapper">
-              <select id="modelSelect" data-tooltip="Список доступных моделей"></select>
-           </div>
-           <div class="checkbox-label">
-                <input type="checkbox" id="freeOnlyCheckbox" data-tooltip="Показывать только бесплатные модели">
-                <label for="freeOnlyCheckbox" data-tooltip="Фильтровать список моделей, оставляя только бесплатные">Только бесплатные</label>
-            </div>
-       </div>
-
-        <!-- General Temperature -->
-        <div class="input-group">
-            <label for="temperature" class="top-label" data-tooltip="Установите температуру для генерации (0-1). Меньшие значения дают более предсказуемые результаты">Общая температура (0-1):</label>
-            <div class="input-group input-group-row">
-                <input type="number" id="temperature" step="0.01" min="0" max="1" placeholder="0.1" data-tooltip="Значение от 0 до 1. Рекомендуется 0.1-0.3">
-                <button onclick="resetTemperature('temperature')" class="custom-button delete-button" style="width: auto; font-size: 0.75em; padding: 6px 10px;" data-tooltip="Сбросить значение температуры">Сброс</button>
+        <div class="input-group" id="modelContainer">
+            <label for="modelSelect" class="top-label">Модель:</label>
+            <div class="select-wrapper">
+                <select id="modelSelect">
+                    <option value="">Выберите модель</option>
+                </select>
             </div>
         </div>
 
-        <!-- Tooltips Toggle -->
+        <div class="input-group">
+            <label for="maxTokens" class="top-label">Макс. токенов:</label>
+            <input type="number" id="maxTokens" min="1" max="4096" step="1" value="1000">
+        </div>
+
+        <!-- Чекбоксы для настроек -->
         <div class="input-group">
             <div class="checkbox-label">
-                <input type="checkbox" id="enable-tooltips" checked data-tooltip="Включить/выключить всплывающие подсказки">
-                <label for="enable-tooltips" data-tooltip="Управление отображением всплывающих подсказок">Включить подсказки</label>
+                <input type="checkbox" id="enableHints" checked>
+                <label for="enableHints">Показывать подсказки</label>
             </div>
         </div>
 
-        <!-- Max Tokens -->
-        <div class="input-group">
-            <label for="maxTokens" data-tooltip="Максимальное количество токенов в ответе">Макс. токенов:</label>
-            <input type="number" id="maxTokens" placeholder="Например: 2048" data-tooltip="Рекомендуется 1000-4000 токенов">
+        <div class="input-group" id="freeOnlyContainer">
+            <div class="checkbox-label">
+                <input type="checkbox" id="freeOnly" onchange="updateFreeOnly()">
+                <label for="freeOnly">Только бесплатные модели</label>
+            </div>
         </div>
 
+        <!-- Сообщения о прогрессе и ошибках -->
+        <div id="progressIndicator" class="progress-indicator">
+            <div class="spinner"></div> Загрузка...
+        </div>
+        <div id="error-message"></div>
+        <div id="status-message"></div>
 
         <!-- Кнопки -->
-         <!--  Убираем отдельную кнопку "Сохранить" -->
-        <!-- <div class="button-group">
-            <button onclick="saveKey()" id="saveButton" class="custom-button" style="margin-right: auto;">Сохранить</button>
-            <button onclick="deleteKey()" id="deleteButton" class="custom-button delete-button" style="margin-left: auto;">Удалить</button>
-        </div> -->
-        <button onclick="saveKey()" id="saveButton" class="custom-button" data-tooltip="Сохранить все настройки">Сохранить</button>
-        <button onclick="resetAllSettings()" id="resetAllSettingsButton" class="custom-button delete-button" data-tooltip="Сбросить все настройки к значениям по умолчанию">Сбросить все настройки</button>
+        <div class="button-group">
+            <button class="custom-button" onclick="saveKeys()">Сохранить</button>
+            <button class="custom-button delete-button" onclick="google.script.host.close()">Отмена</button>
+        </div>
+        <div class="button-group-column">
+            <button id="resetAllSettingsButton" class="custom-button delete-button" onclick="if(confirm('Вы уверены, что хотите сбросить все настройки?')) { google.script.run.withSuccessHandler(loadKeysAndSettings).deleteApiAndTemperature(); }">Сбросить всё</button>
+        </div>
 
-        <div id="error-message" class="message"></div>
-        <div id="status-message" class="message"></div>
-        <div class="progress-indicator"><span class="spinner"></span>Сохранение...</div>
+        <!-- Контейнер для подсказок -->
+        <div class="tooltip-container" id="tooltip"></div>
     </div>
-
-    <div class="tooltip-container" id="tooltip-container"></div>
-
-    <script>
-      class ApiKeyManager {
-        static validateApiKey(apiKey) {
-            return /^sk-or-v1-[a-zA-Z0-9]+$/.test(apiKey);
-        }
-
-        static validateTemperature(temp) {
-            if (!temp) return true; // Необязательное поле
-            const value = parseFloat(temp);
-            return !isNaN(value) && value >= 0 && value <= 1;
-        }
-
-        static validateMaxTokens(maxTokens) {
-            if (!maxTokens) return true;
-            const value = parseInt(maxTokens, 10);
-            return !isNaN(value) && value > 0;
-        }
-
-        static setLoading(isLoading) {
-            document.querySelectorAll('button:not(#resetTemperatureButton):not(#resetAllSettingsButton)').forEach(btn =>
-                btn.disabled = isLoading
-            );
-
-            document.querySelector('.progress-indicator').style.display =
-                isLoading ? 'block' : 'none';
-
-        }
-    }
-
-    class UIManager {
-        static showMessage(message, type = 'info') {
-            const messageElement = document.getElementById('error-message');
-            const statusElement = document.getElementById('status-message');
-            
-            // Сначала удаляем классы visible
-            messageElement.classList.remove('visible');
-            statusElement.classList.remove('visible');
-
-            // Очищаем текст
-            messageElement.textContent = '';
-            statusElement.textContent = '';
-
-            if (type === 'error') {
-                messageElement.textContent = message;
-                messageElement.classList.add('visible');
-            } else {
-                statusElement.textContent = message;
-                statusElement.classList.add('visible');
-            }
-            
-            // Добавляем автоматическое скрытие сообщения через 5 секунд
-            if (message) {
-                setTimeout(() => {
-                    if (type === 'error') {
-                        messageElement.classList.remove('visible');
-                    } else {
-                        statusElement.classList.remove('visible');
-                    }
-                }, 5000);
-            }
-        }
-
-        static clearMessages() {
-            document.getElementById('error-message').classList.remove('visible');
-            document.getElementById('status-message').classList.remove('visible');
-        }
-    }
-
-    let validationTimer;
-
-    document.addEventListener('DOMContentLoaded', () => {
-        // Загружаем настройки с сервера
-        loadInitialData();
-        // Инициализируем обработчики подсказок
-        initializeTooltips(); 
-    });
-
-    function setupValidation() {
-      const apiKeyInput = document.getElementById('apiKey');
-      const temperatureInput = document.getElementById('temperature');
-      const maxTokensInput = document.getElementById('maxTokens');
-
-      apiKeyInput.addEventListener('input', () => {
-          clearTimeout(validationTimer);
-          validationTimer = setTimeout(() => {
-              const apiKey = apiKeyInput.value.trim();
-              if (apiKey && !ApiKeyManager.validateApiKey(apiKey)) {
-                  UIManager.showMessage('Неверный формат API-ключа', 'error');
-              } else {
-                  UIManager.clearMessages();
-                  if (apiKey) {
-                      loadModels();
-                  }
-              }
-          }, 200)
-      });
-
-      temperatureInput.addEventListener('input', () => {
-          clearTimeout(validationTimer);
-          validationTimer = setTimeout(() => {
-              const temperature = temperatureInput.value.trim();
-              if (temperature && !ApiKeyManager.validateTemperature(temperature)) {
-                  UIManager.showMessage('Температура должна быть числом от 0 до 1', 'error');
-              } else {
-                  UIManager.clearMessages();
-              }
-          }, 200);
-      });
-
-      maxTokensInput.addEventListener('input', () => {
-          clearTimeout(validationTimer);
-          validationTimer = setTimeout(() => {
-              const maxTokens = maxTokensInput.value.trim();
-              if (maxTokens && !ApiKeyManager.validateMaxTokens(maxTokens)) {
-                  UIManager.showMessage('Макс. токенов должно быть положительным числом', 'error');
-              } else {
-                  UIManager.clearMessages();
-              }
-          }, 200);
-      });
-
-    }
-
-async function loadInitialData() {
-    try {
-        ApiKeyManager.setLoading(true);
-        await Promise.all([
-            loadApiKey(),
-            loadTemperature(),
-            loadModel(),
-            loadMaxTokens(),
-            loadFreeOnlySetting(),
-            loadHintsSetting()
-        ]);
-        if (document.getElementById('apiKey').value) {
-            await loadModels();
-        }
-        setupValidation();
-    } catch (error) {
-        UIManager.showMessage('Ошибка загрузки данных: ' + error, 'error');
-        console.error("Ошибка загрузки данных:", error);
-    } finally {
-        ApiKeyManager.setLoading(false);
-    }
-}
-
-    function loadApiKey() {
-        return new Promise((resolve) => {
-            google.script.run
-                .withSuccessHandler(apiKey => {
-                    document.getElementById('apiKey').value = apiKey || '';
-                    if (apiKey) {
-                        loadModels();
-                    }
-                    resolve();
-                })
-                .withFailureHandler(error => {
-                    UIManager.showMessage('Ошибка загрузки API-ключа: ' + error, 'error');
-                    resolve();
-                })
-                .getApiKeyFromClient();
-        });
-    }
-
-    function loadTemperature() {
-        return new Promise((resolve) => {
-            google.script.run
-                .withSuccessHandler(temperature => {
-                    document.getElementById('temperature').value = temperature || '';
-                    resolve();
-                })
-                .withFailureHandler(error => {
-                    UIManager.showMessage('Ошибка загрузки температуры: ' + error, 'error');
-                    resolve();
-                })
-                .getTemperatureFromClient();
-        });
-    }
-
-    function loadModel() {
-        return new Promise((resolve) => {
-            google.script.run
-                .withSuccessHandler(model => {
-                  if(model){
-                     document.getElementById('modelSelect').value = model;
-                  }
-                    resolve();
-                })
-                .withFailureHandler(error => {
-                    UIManager.showMessage('Ошибка загрузки модели: ' + error, 'error');
-                    resolve();
-                })
-                .getModelFromClient();
-        });
-    }
-
-    function loadMaxTokens() {
-        return new Promise((resolve) => {
-            google.script.run
-                .withSuccessHandler(maxTokens => {
-                    document.getElementById('maxTokens').value = maxTokens || '';
-                    resolve();
-                })
-                .withFailureHandler(error => {
-                    UIManager.showMessage('Ошибка загрузки макс. токенов: ' + error, 'error');
-                    resolve();
-                })
-                .getMaxTokensFromClient();
-        });
-    }
-
-    function loadFreeOnlySetting() {
-        return new Promise((resolve) => {
-            google.script.run
-                .withSuccessHandler(freeOnly => {
-                    document.getElementById('freeOnlyCheckbox').checked = freeOnly;
-                    resolve();
-                })
-                .withFailureHandler(error => {
-                    UIManager.showMessage('Ошибка загрузки настройки бесплатных моделей: ' + error, 'error');
-                    console.error("Ошибка загрузки freeOnly:", error);
-                    resolve();
-                })
-                .getFreeOnlySetting();
-        });
-    }
-
-    function loadHintsSetting() {
-        return new Promise((resolve) => {
-            google.script.run
-                .withSuccessHandler(enabled => {
-                    document.getElementById('enable-tooltips').checked = enabled;
-                    updateTooltipState(enabled);
-                    resolve();
-                })
-                .withFailureHandler(error => {
-                    UIManager.showMessage('Ошибка загрузки настройки подсказок: ' + error, 'error');
-                    console.error("Ошибка загрузки hints:", error);
-                    document.getElementById('enable-tooltips').checked = true;
-                    updateTooltipState(true);
-                    resolve();
-                })
-                .getHintsEnabledSetting();
-        });
-    }
-
-    async function loadModels() {
-       const freeOnly = document.getElementById('freeOnlyCheckbox').checked;
-        try {
-          const models = await new Promise((resolve, reject) => {
-              google.script.run
-              .withSuccessHandler(resolve)
-              .withFailureHandler(reject)
-              .getModelsListFromClient(freeOnly)
-          });
-
-          const modelSelect = document.getElementById('modelSelect');
-          modelSelect.innerHTML = '';
-
-          models.forEach(model => {
-              const option = document.createElement('option');
-              option.value = model.id;
-              option.textContent = model.name;
-              modelSelect.appendChild(option);
-          });
-
-          await loadModel();
-
-        } catch (error) {
-          UIManager.showMessage('Ошибка загрузки списка моделей: ' + error, 'error');
-        }
-    }
-
-    async function saveKey() {
-        const apiKey = document.getElementById('apiKey').value.trim();
-        const temperature = document.getElementById('temperature').value.trim();
-        const model = document.getElementById('modelSelect').value;
-        const maxTokens = document.getElementById('maxTokens').value.trim();
-        const enableHints = document.getElementById('enable-tooltips').checked;
-        const freeOnly = document.getElementById('freeOnlyCheckbox').checked;
-
-        if (!apiKey) {
-            await deleteKeyAndSettings(); 
-            return;
-        }
-        
-        if (apiKey && !ApiKeyManager.validateApiKey(apiKey)) {
-            UIManager.showMessage('Неверный формат API-ключа', 'error');
-            return;
-        }
-  
-        if (temperature && !ApiKeyManager.validateTemperature(temperature)) {
-            UIManager.showMessage('Температура должна быть числом от 0 до 1', 'error');
-            return;
-        }
-  
-        if (maxTokens && !ApiKeyManager.validateMaxTokens(maxTokens)) {
-            UIManager.showMessage('Макс. токенов должно быть положительным числом', 'error');
-            return;
-        }
-
-        ApiKeyManager.setLoading(true);
-        UIManager.clearMessages();
-
-        try {
-            console.log("Отправка данных на сервер:", {apiKey: apiKey ? "***" : null, temperature, model, maxTokens, enableHints, freeOnly});
-
-            const result = await new Promise((resolve, reject) => {
-                google.script.run
-                    .withSuccessHandler(resolve)
-                    .withFailureHandler(reject)
-                    .saveApiKeyAndTemperature(apiKey, temperature, model, maxTokens, enableHints, freeOnly);
-            });
-
-            console.log("Получен ответ от сервера:", result);
-
-            UIManager.showMessage(result, 'success');
-        } catch (error) {
-            console.error("Ошибка при сохранении:", error);
-            const errorMessage = error.message || (typeof error === 'object' ? JSON.stringify(error) : error);
-            UIManager.showMessage('Ошибка сохранения: ' + errorMessage, 'error');
-        } finally {
-            ApiKeyManager.setLoading(false);
-        }
-    }
-
-    function resetTemperature(fieldId) {
-        document.getElementById(fieldId).value = '';
-    }
-
-    function resetAllSettingsUI() {
-        document.getElementById('apiKey').value = '';
-        document.getElementById('temperature').value = '';
-        document.getElementById('modelSelect').innerHTML = '<option value="">-- Модели не загружены --</option>';
-        document.getElementById('maxTokens').value = '';
-        document.getElementById('freeOnlyCheckbox').checked = false;
-        document.getElementById('enable-tooltips').checked = true;
-        updateTooltipState(true);
-        UIManager.clearMessages();
-    }
-
-    async function deleteKeyAndSettings() {
-        if (!confirm('Вы уверены, что хотите удалить API-ключ и сбросить все настройки?')) return;
-
-        ApiKeyManager.setLoading(true);
-        UIManager.clearMessages();
-        try {
-            const result = await new Promise((resolve, reject) => {
-                google.script.run
-                .withSuccessHandler(resolve)
-                .withFailureHandler(reject)
-                .deleteApiAndTemperature();
-            });
-            UIManager.showMessage(result, 'success');
-            resetAllSettingsUI();
-        } catch (error) {
-            const errorMessage = error.message || (typeof error === 'object' ? JSON.stringify(error) : error);
-            UIManager.showMessage('Ошибка сброса: ' + errorMessage, 'error');
-        } finally {
-            ApiKeyManager.setLoading(false);
-        }
-    }
-
-    function resetAllSettings() {
-        deleteKeyAndSettings();
-    }
-
-    document.getElementById('freeOnlyCheckbox').addEventListener('change', function() {
-        const freeOnly = this.checked;
-        if (document.getElementById('apiKey').value) {
-           loadModels();
-        } else {
-           document.getElementById('modelSelect').innerHTML = '<option value="">-- Введите API ключ --</option>';
-        }
-    });
-
-    document.getElementById('enable-tooltips').addEventListener('change', function() {
-        const enabled = this.checked;
-        updateTooltipState(enabled);
-    });
-
-    let tooltipsGloballyEnabled = true;
-
-    function updateTooltipState(enabled) {
-        tooltipsGloballyEnabled = enabled;
-        if (!enabled) {
-            hideTooltip();
-        }
-    }
-
-    function initializeTooltips() {
-        document.querySelectorAll('[data-tooltip]').forEach(element => {
-            element.addEventListener('mouseenter', () => {
-                if (tooltipsGloballyEnabled) {
-                    showTooltip(element, element.getAttribute('data-tooltip'));
-                }
-            });
-            element.addEventListener('mouseleave', () => {
-                hideTooltip();
-            });
-            element.addEventListener('focus', () => {
-                if (tooltipsGloballyEnabled) {
-                    showTooltip(element, element.getAttribute('data-tooltip'));
-                }
-            });
-            element.addEventListener('blur', () => {
-                hideTooltip();
-            });
-        });
-    }
-
-    function showTooltip(element, text) {
-        const tooltipContainer = document.getElementById('tooltip-container');
-        tooltipContainer.textContent = text;
-        tooltipContainer.classList.add('visible');
-    }
-
-    function hideTooltip() {
-        const tooltipContainer = document.getElementById('tooltip-container');
-        tooltipContainer.classList.remove('visible');
-    }
-
-    </script>
 </body>
 </html>
