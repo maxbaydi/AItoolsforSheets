@@ -514,103 +514,154 @@ function fillCells() {
     const numRows = values.length;
     const numCols = values[0].length;
 
-    // 1. Список координат пустых ячеек
-    const emptyCellsCoordinates = [];
+    // 1. Список координат и маркеров пустых ячеек
+    const emptyCellsToFill = []; // Сохраняем объекты {row: i, col: j, originalIndex: k}
+    let emptyCellCounter = 0;
     for (let i = 0; i < numRows; i++) {
         for (let j = 0; j < numCols; j++) {
             if (values[i][j] === "") {
-                emptyCellsCoordinates.push(`${i + 1},${j + 1}`);
+                emptyCellsToFill.push({ row: i, col: j, originalIndex: emptyCellCounter++ });
             }
         }
     }
 
-    // Проверка на наличие пустых ячеек
-    if (emptyCellsCoordinates.length === 0) {
+    if (emptyCellsToFill.length === 0) {
         SpreadsheetApp.getUi().alert('Нет пустых ячеек', 'В выделенном диапазоне нет пустых ячеек.', SpreadsheetApp.getUi().ButtonSet.OK);
         return;
     }
 
-    // 2. Формируем CSV таблицы
-    let csvData = "";
-    for (let i = 0; i < numRows; i++) {
-        let rowValues = [];
-        for (let j = 0; j < numCols; j++) {
-            rowValues.push(values[i][j] ? values[i][j] : "");
-        }
-        csvData += rowValues.join(COLUMN_DELIMITER) + (i < numRows - 1 ? ROW_DELIMITER : "");
+    // 2. Создаём визуальное представление таблицы в виде Markdown-таблицы
+    // и пронумеруем пустые ячейки для однозначного порядка
+    let markdownTable = "";
+    let emptyCellCounterVisual = 1; // Переименовано для избежания конфликта
+    
+    // Создаём массив для хранения соответствия между пронумерованными пустыми ячейками и их координатами
+    const emptyCellsMappings = [];
+    
+    // Создаём заголовок таблицы с номерами столбцов
+    markdownTable += "| |";
+    for (let j = 0; j < numCols; j++) {
+        markdownTable += ` Колонка ${j+1} |`;
     }
+    markdownTable += "\n|--|";
+    
+    // Добавляем разделитель заголовка
+    for (let j = 0; j < numCols; j++) {
+        markdownTable += "--|";
+    }
+    markdownTable += "\n";
+    
+    // Заполняем таблицу данными с нумерацией пустых ячеек
+    for (let i = 0; i < numRows; i++) {
+        markdownTable += `| Строка ${i+1} |`;
+        for (let j = 0; j < numCols; j++) {
+            if (values[i][j] === "") {
+                // Пустая ячейка - нумеруем
+                markdownTable += ` [ПУСТО${emptyCellCounterVisual}] |`;
+                emptyCellsMappings.push({
+                    label: `ПУСТО${emptyCellCounterVisual}`,
+                    row: i,
+                    col: j
+                });
+                emptyCellCounterVisual++;
+            } else {
+                // Не пустая ячейка - просто значение
+                markdownTable += ` ${values[i][j]} |`;
+            }
+        }
+        markdownTable += "\n";
+    }
+    
+    // Создаём детальные инструкции по каждой пустой ячейке
+    let emptyDetailsText = "";
+    for (let i = 0; i < emptyCellsMappings.length; i++) {
+        const cell = emptyCellsMappings[i];
+        emptyDetailsText += `${i+1}. [${cell.label}]: Ячейка на пересечении строки ${cell.row+1}, колонки ${cell.col+1}\n`;
+    }
+    
+    const numberOfEmptyCells = emptyCellsMappings.length;
+    
+    // 3. Формируем промпт с визуальной таблицей и чёткими инструкциями
+    const prompt = `Таблица:
+${markdownTable}
+Требуется заполнить ${numberOfEmptyCells} пустых ячеек:
+${emptyDetailsText}
+Верните ТОЛЬКО значения для пустых ячеек через разделитель '¦' в порядке их нумерации от [ПУСТО1] до [ПУСТО${numberOfEmptyCells}].
 
-    // 3. Формируем промпт для полной таблицы в формате CSV
-    const prompt = `Заполни пустые ячейки в следующей таблице, состоящей из ${numRows} строк и ${numCols} столбцов. Используй контекст таблицы для заполнения. Верни таблицу полностью сохраняя порядок ячеек. В ответе только таблица без заголовков и без любого дополнительного текста или обрамления в начале или в конце. В ответе строго ${numRows} строк и ${numCols} столбцов. Если не можешь заполнить какую-то ячейку, верни для неё пустую строку. Используй (¦) как разделитель:\n${csvData}`;
+Формат ответа - одна строка без пробелов вокруг разделителя:
+значение1¦значение2¦...¦значение${numberOfEmptyCells}
 
-    logMessage(`fillCells prompt CSV:\n${prompt}`);
+Если для какой-то ячейки невозможно определить значение, используйте 'n/a'.
+Не добавляйте никаких комментариев или пояснений перед или после значений.`;
+
+    logMessage(`fillCells prompt:\n${prompt}`);
 
     const settings = getSettings();
     const model = settings.model;
-    const temperature = settings.temperature;
+    // Устанавливаем меньшее значение temperature для более детерминированных ответов
+    const temperature = settings.temperature; // Используем fixed temperature вместо settings.temperature
     const retries = settings.retryAttempts;
-    const maxTokens = settings.maxTokens;
-    let filledTable = [];
+    const maxTokens = settings.maxTokens; // Убедимся, что maxTokens достаточен для ответа
 
     let attempt = 0;
     let success = false;
-    let aiResponse;
+    let aiResponseText;
 
     while (attempt < retries && !success) {
         attempt++;
         logMessage(`Попытка ${attempt} из ${retries}`);
         try {
-            aiResponse = openRouterRequest(prompt, model, temperature, retries, maxTokens);
-            if (!aiResponse?.choices?.[0]?.message) {
-                throw new Error("Ошибка: Неожиданный ответ от OpenRouter в fillCells");
+            const aiFullResponse = openRouterRequest(prompt, model, temperature, retries, maxTokens);
+            if (!aiFullResponse?.choices?.[0]?.message?.content) {
+                throw new Error("Ошибка: Неожиданный или пустой ответ от OpenRouter в fillCells");
             }
-            // Обрабатываем полный CSV ответа
-            let csvResponse = aiResponse.choices[0].message.content.trim()
-                .replace(/^```csv\s*/i, '')
-                .replace(/```\s*$/i, '')
-                .trim();
-            // Удаляем лишние разделители в начале и конце всего ответа
-            csvResponse = csvResponse.replace(/^\s*¦+/, '').replace(/¦+\s*$/, '');
-            // Удаляем лишние разделители в начале и конце каждой строки
-            csvResponse = csvResponse.split('\n').map(line => line.replace(/^¦+|¦+$/g, '')).join('\n');
-            logMessage(`fillCells CSV response (попытка ${attempt}):\n${csvResponse}`);
-            filledTable = Utilities.parseCsv(csvResponse, COLUMN_DELIMITER);
-            if (filledTable.length !== numRows || filledTable[0].length !== numCols) {
-                throw new Error(`Неверный формат таблицы: ожидается ${numRows}x${numCols}, получено ${filledTable.length}x${filledTable[0]?.length}`);
+            aiResponseText = aiFullResponse.choices[0].message.content.trim();
+            logMessage(`fillCells AI response (попытка ${attempt}):\n${aiResponseText}`);
+
+            // Очищаем ответ от лишних кавычек и пробелов
+            const cleanedResponse = aiResponseText.replace(/^['"`]|['"`]$/g, '').trim();
+            const filledValuesRaw = cleanedResponse.split('¦');
+
+            if (filledValuesRaw.length !== numberOfEmptyCells) {
+                throw new Error(`Неверное количество значений в ответе: ожидается ${numberOfEmptyCells}, получено ${filledValuesRaw.length}. Ответ: "${aiResponseText}"`);
+            }
+            
+            const filledValues = filledValuesRaw.map(v => {
+                const trimmedValue = v.trim();
+                return (trimmedValue === "[Н/Д]" || trimmedValue === "n/a") ? "" : trimmedValue;
+            });
+            
+            // 5. Заполняем пустые ячейки полученными значениями в соответствии с маппингом
+            for (let i = 0; i < numberOfEmptyCells; i++) {
+                const cellInfo = emptyCellsMappings[i];
+                // Проверяем, что значение не undefined
+                const valueToSet = filledValues[i] !== undefined ? filledValues[i] : ""; 
+                range.getCell(cellInfo.row + 1, cellInfo.col + 1).setValue(valueToSet);
             }
             success = true;
+
+            // Кэширование (если нужно, можно адаптировать или оставить как есть)
+            const promptPrefix = `fillEmptyCells_v2_context:${tableContextString.substring(0,100)}`; // Пример префикса для кэша
+            const effectiveModel = SCRIPT_PROPERTIES.getProperty(MODEL_SETTING_KEY) || model || DEFAULT_MODEL;
+            const effectiveTemperature = parseFloat(SCRIPT_PROPERTIES.getProperty(TEMPERATURE_SETTING_KEY)) || temperature || DEFAULT_TEMPERATURE;
+            const effectiveMaxTokens = parseInt(SCRIPT_PROPERTIES.getProperty(MAX_TOKENS_SETTING_KEY), 10) || DEFAULT_MAX_TOKENS;
+            const promptHash = calculateMD5(promptPrefix + effectiveModel + effectiveTemperature + effectiveMaxTokens + emptyCellsToFill.map(c => `${c.row},${c.col}`).join(';'));
+            const cacheKey = `promptHash:${promptHash}`;
+            CACHE.put(cacheKey, JSON.stringify({responseText: aiResponseText}), 21600); // Кэшируем только текст ответа
+            logMessage(`fillCells: Ответ AI сохранен в кэше для ключа: ${cacheKey}`);
         } catch (error) {
             logMessage(`Ошибка в fillCells (попытка ${attempt}): ${error.toString()}`, true);
             if (attempt === retries) {
-                throw new Error(`Не удалось получить корректный ответ от AI после ${retries} попыток.`);
+                 SpreadsheetApp.getUi().alert('Ошибка', `Не удалось получить корректный ответ от AI после ${retries} попыток. Последняя ошибка: ${error.message}`);
+                return; // Выходим из функции, если все попытки неудачны
             }
         }
     }
 
-    // Проверка успеха
     if (!success) {
-        throw new Error(`Не удалось получить и обработать ответ от AI после ${retries} попыток.`);
-    }
-
-    if (success && aiResponse) {
-        const promptPrefix = prompt.substring(0, prompt.indexOf('\n'));
-        const effectiveModel = SCRIPT_PROPERTIES.getProperty(MODEL_SETTING_KEY) || model || DEFAULT_MODEL;
-        const effectiveTemperature = parseFloat(SCRIPT_PROPERTIES.getProperty(TEMPERATURE_SETTING_KEY)) || temperature || DEFAULT_TEMPERATURE;
-        const effectiveMaxTokens = parseInt(SCRIPT_PROPERTIES.getProperty(MAX_TOKENS_SETTING_KEY), 10) ||  DEFAULT_MAX_TOKENS;
-
-        const promptHash = calculateMD5(promptPrefix + effectiveModel + effectiveTemperature + effectiveMaxTokens);
-        const cacheKey = `promptHash:${promptHash}`;
-        CACHE.put(cacheKey, JSON.stringify(aiResponse), 21600);
-        logMessage(`fillCells: Ответ AI сохранен в кэше для ключа: ${cacheKey}`);
-    }
-
-    // 5. Заполняем пустые ячейки из заполненной таблицы
-    for (let i = 0; i < numRows; i++) {
-        for (let j = 0; j < numCols; j++) {
-            if (values[i][j] === "" && filledTable[i][j] !== "") {
-                range.getCell(i + 1, j + 1).setValue(filledTable[i][j]);
-            }
-        }
+        // Это сообщение не должно появиться, если return выше сработал
+        SpreadsheetApp.getUi().alert('Ошибка', `Не удалось получить и обработать ответ от AI после ${retries} попыток.`);
+        return;
     }
 
     SpreadsheetApp.getUi().alert('Ячейки заполнены', 'Пустые ячейки в выделенном диапазоне были заполнены.', SpreadsheetApp.getUi().ButtonSet.OK);
